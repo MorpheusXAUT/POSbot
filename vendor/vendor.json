@@ -1,0 +1,67 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "p8huenP/X/sEPx/4VSBJWQ/U7zY=",
+			"path": "github.com/Sirupsen/logrus",
+			"revision": "61e43dc76f7ee59a82bdf3d71033dc12bea4c77d",
+			"revisionTime": "2017-01-13T01:19:11Z"
+		},
+		{
+			"checksumSHA1": "uviChbqqhvoeErm0M5sgPHVo8kA=",
+			"path": "github.com/bwmarrin/discordgo",
+			"revision": "5835676872d7fa65ee37b32672079c4ede2c1855",
+			"revisionTime": "2016-12-10T14:47:14Z"
+		},
+		{
+			"checksumSHA1": "6X3O3mfvOyiwV2iAb5GjxARs08c=",
+			"path": "github.com/garyburd/redigo/internal",
+			"revision": "908534c8b97586a4597e3fa195875d2d26502b97",
+			"revisionTime": "2017-01-13T05:33:26Z"
+		},
+		{
+			"checksumSHA1": "ZalXv19leH8k1cxeGnOEvG2sLG0=",
+			"path": "github.com/garyburd/redigo/redis",
+			"revision": "908534c8b97586a4597e3fa195875d2d26502b97",
+			"revisionTime": "2017-01-13T05:33:26Z"
+		},
+		{
+			"checksumSHA1": "zYwgnVSKDLqf3PKOl47d7V3vGb4=",
+			"path": "github.com/gorilla/websocket",
+			"revision": "4e4c8d08b4b90add48392b80324adb3630ff3431",
+			"revisionTime": "2017-01-24T23:37:53Z"
+		},
+		{
+			"checksumSHA1": "ChX4j3f+As0DJ8vfQlsXvh0aN+E=",
+			"path": "github.com/morpheusxaut/eveapi",
+			"revision": "ddc69ca0c36e8c732259860a5bb82fe43c7d8aac",
+			"revisionTime": "2017-01-25T13:13:29Z"
+		},
+		{
+			"checksumSHA1": "iwLqOY6Nr1BitBUex4K0Wep3JL8=",
+			"path": "github.com/pkg/errors",
+			"revision": "248dadf4e9068a0b3e79f02ed0a610d935de5302",
+			"revisionTime": "2016-10-29T09:36:37Z"
+		},
+		{
+			"checksumSHA1": "Y/FcWB2/xSfX1rRp7HYhktHNw8s=",
+			"path": "golang.org/x/crypto/nacl/secretbox",
+			"revision": "41d678d1df78cd0410143162dff954e6dc09300f",
+			"revisionTime": "2017-01-16T12:25:54Z"
+		},
+		{
+			"checksumSHA1": "1LqFkun1+9z4K7MF8rJi3rzfO/0=",
+			"path": "golang.org/x/crypto/poly1305",
+			"revision": "41d678d1df78cd0410143162dff954e6dc09300f",
+			"revisionTime": "2017-01-16T12:25:54Z"
+		},
+		{
+			"checksumSHA1": "w8PESKJweP+BCAxCYPU1QC08qUU=",
+			"path": "golang.org/x/crypto/salsa20/salsa",
+			"revision": "41d678d1df78cd0410143162dff954e6dc09300f",
+			"revisionTime": "2017-01-16T12:25:54Z"
+		}
+	],
+	"rootPath": "github.com/morpheusxaut/POSbot"
+}
