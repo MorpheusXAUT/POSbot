@@ -6,10 +6,10 @@ import (
 )
 
 const (
-	RefTypesURL     = "/Eve/RefTypes.xml.aspx"
-	AllianceListURL = "/Eve/AllianceList.xml.aspx"
-	CharacterIDURL  = "/eve/CharacterID.xml.aspx"
-    CharacterNameURL  = "/eve/CharacterName.xml.aspx"
+	RefTypesURL      = "/Eve/RefTypes.xml.aspx"
+	AllianceListURL  = "/Eve/AllianceList.xml.aspx"
+	CharacterIDURL   = "/eve/CharacterID.xml.aspx"
+	CharacterNameURL = "/eve/CharacterName.xml.aspx"
 )
 
 // CharacterName calls the /eve/CharacterName.xml.aspx endpoint with the parameter chars, which is a comma separate string of character names.
@@ -29,19 +29,18 @@ func (api API) CharacterName(chars string) (*CharacterNameResult, error) {
 }
 
 func (api API) IdsToNames(chars string) (*CharacterNameResult, error) {
-    output := CharacterNameResult{}
-    arguments := url.Values{}
-    arguments.Add("ids", chars)
-    err := api.Call(CharacterNameURL, arguments, &output)
-    if err != nil {
-        return nil, err
-    }
-    if output.Error != nil {
-        return nil, output.Error
-    }
-    return &output, nil
+	output := CharacterNameResult{}
+	arguments := url.Values{}
+	arguments.Add("ids", chars)
+	err := api.Call(CharacterNameURL, arguments, &output)
+	if err != nil {
+		return nil, err
+	}
+	if output.Error != nil {
+		return nil, output.Error
+	}
+	return &output, nil
 }
-
 
 // Name2ID is a convenience wrapper around CharacterName.
 // It takes a single parameter char string which is the name of the character you want the characterID of.
@@ -72,7 +71,7 @@ func (api API) Names2ID(char string) ([]CharacterNameRow, error) {
 
 // CharacterNameRow represents a single row in CharacterNameResult
 type CharacterNameRow struct {
-	ID   int64 `xml:"characterID,attr"`
+	ID   int64  `xml:"characterID,attr"`
 	Name string `xml:"name,attr"`
 }
 type CharacterNameResult struct {

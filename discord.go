@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"github.com/Sirupsen/logrus"
 	"github.com/bwmarrin/discordgo"
+	"strconv"
 	"strings"
 )
 
@@ -70,5 +72,44 @@ func (b *Bot) handleDiscordFuelCommand(message *discordgo.MessageCreate) {
 }
 
 func (b *Bot) handleDiscordPOSCommand(message *discordgo.MessageCreate) {
-	b.discord.ChannelMessageSend(message.ChannelID, "Would you kindly fuck off, please? :innocent:")
+	messageParts := strings.Split(message.Content, " ")
+
+	if len(messageParts) == 1 || (len(messageParts) == 2 && strings.EqualFold(messageParts[1], "list")) {
+		log.WithField("author", message.Author.Username).Debug("Retrieving POS list for Discord command")
+
+		starbases, err := b.retrieveStarbaseList()
+		if err != nil {
+			log.WithError(err).Warn("Failed to retrieve POS list")
+			b.discord.ChannelMessageSend(message.ChannelID, ":poop: Looks like there was an error retrieving the POS list :frowning:")
+			return
+		}
+
+		b.discord.ChannelMessageSend(message.ChannelID, fmt.Sprintf("Would you kindly fuck off, please? :innocent: BTW, there's %d POSes", len(starbases.Starbases)))
+		log.WithField("author", message.Author.Username).Debug("Retrieved POS list for Discord command")
+	} else if len(messageParts) >= 2 {
+		starbaseID, err := strconv.ParseInt(messageParts[1], 10, 64)
+		if err != nil || starbaseID <= 0 {
+			log.WithField("starbaseID", starbaseID).WithError(err).Debug("Failed to parse starbaseID for Discord POS command")
+			b.discord.ChannelMessageSend(message.ChannelID, fmt.Sprintf("<@%s>: Seems like you've provided an invalid POS ID :poop:", message.Author.ID))
+			return
+		}
+
+		log.WithFields(logrus.Fields{
+			"author":     message.Author.Username,
+			"starbaseID": starbaseID,
+		}).Debug("Retrieving POS details for Discord command")
+
+		starbase, err := b.retrieveStarbaseDetails(int(starbaseID))
+		if err != nil {
+			log.WithError(err).Warn("Failed to retrieve POS details")
+			b.discord.ChannelMessageSend(message.ChannelID, ":poop: Looks like there was an error retrieving the POS details :frowning:")
+			return
+		}
+
+		b.discord.ChannelMessageSend(message.ChannelID, fmt.Sprintf("Amazing. State: %s", starbase.State))
+		log.WithFields(logrus.Fields{
+			"author":     message.Author.Username,
+			"starbaseID": starbaseID,
+		}).Debug("Retrieved POS details for Discord command")
+	}
 }
