@@ -32,8 +32,9 @@ type BotConfig struct {
 		Debug     bool   `json:"debug"`
 	} `json:"discord"`
 	EVE struct {
-		KeyID    string `json:"keyID"`
-		KeyVCode string `json:"keyvCode"`
+		KeyID            string   `json:"keyID"`
+		KeyVCode         string   `json:"keyvCode"`
+		IgnoredStarbases []string `json:"ignoredStarbases"`
 	} `json:"eve"`
 	Redis struct {
 		Address  string `json:"address"`
@@ -72,7 +73,7 @@ func NewBot(config *BotConfig) (*Bot, error) {
 			VCode: bot.config.EVE.KeyVCode,
 		},
 		UserAgent: UserAgent,
-		Timeout:   10 * time.Second,
+		Timeout:   60 * time.Second,
 		Debug:     false,
 	}
 
