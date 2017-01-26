@@ -25,16 +25,17 @@ type Bot struct {
 
 type BotConfig struct {
 	Discord struct {
-		Token     string `json:"token"`
-		GuildID   string `json:"guildID"`
-		ChannelID string `json:"channelID"`
-		Verbose   bool   `json:"verbose"`
-		Debug     bool   `json:"debug"`
+		Token          string `json:"token"`
+		GuildID        string `json:"guildID"`
+		ChannelID      string `json:"channelID"`
+		BotAdminRoleID string `json:"botAdminRoleID"`
+		Verbose        bool   `json:"verbose"`
+		Debug          bool   `json:"debug"`
 	} `json:"discord"`
 	EVE struct {
-		KeyID            string   `json:"keyID"`
-		KeyVCode         string   `json:"keyvCode"`
-		IgnoredStarbases []string `json:"ignoredStarbases"`
+		KeyID            string `json:"keyID"`
+		KeyVCode         string `json:"keyvCode"`
+		IgnoredStarbases []int  `json:"ignoredStarbases"`
 	} `json:"eve"`
 	Redis struct {
 		Address  string `json:"address"`
