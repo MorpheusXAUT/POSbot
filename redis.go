@@ -14,6 +14,44 @@ const (
 	RedisKeyStarbaseDetails = "posbotStarbaseDetails"
 )
 
+func (b *Bot) recordCommandUsage(command string) {
+	r := b.redis.Get()
+	defer r.Close()
+
+	_, err := r.Do("INCR", fmt.Sprintf("posbotCommandUsage%s", command))
+	if err != nil {
+		log.WithField("command", command).WithError(err).Warn("Failed to record command usage in redis")
+	}
+}
+
+func (b *Bot) retrieveCommandUsageStats() (map[string]int, error) {
+	r := b.redis.Get()
+	defer r.Close()
+
+	keys, err := redis.Strings(r.Do("KEYS", "posbotCommandUsage*"))
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to get command usage keys from redis")
+	}
+
+	stats := make(map[string]int)
+	for _, key := range keys {
+		if len(key) <= 18 {
+			// Missing command "name" in key
+			continue
+		}
+
+		count, err := redis.Int(r.Do("GET", key))
+		if err != nil {
+			log.WithField("key", key).WithError(err).Warn("Failed to retrieve usage count from redis")
+			continue
+		}
+
+		stats[key[18:]] = count
+	}
+
+	return stats, nil
+}
+
 func (b *Bot) retrieveCachedStarbaseList() (*eveapi.StarbaseList, error) {
 	r := b.redis.Get()
 	defer r.Close()

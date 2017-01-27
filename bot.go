@@ -20,7 +20,8 @@ type Bot struct {
 	eve     eveapi.API
 	redis   *redis.Pool
 
-	config *BotConfig
+	config    *BotConfig
+	startTime time.Time
 }
 
 type BotConfig struct {
@@ -46,7 +47,8 @@ type BotConfig struct {
 
 func NewBot(config *BotConfig) (*Bot, error) {
 	bot := &Bot{
-		config: config,
+		config:    config,
+		startTime: time.Now().UTC(),
 	}
 
 	var err error

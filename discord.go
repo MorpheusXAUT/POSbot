@@ -4,9 +4,20 @@ import (
 	"fmt"
 	"github.com/Sirupsen/logrus"
 	"github.com/bwmarrin/discordgo"
+	"github.com/dustin/go-humanize"
 	"github.com/pkg/errors"
+	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/host"
+	"github.com/shirou/gopsutil/load"
+	"github.com/shirou/gopsutil/mem"
 	"strconv"
 	"strings"
+	"time"
+)
+
+const (
+	DiscordEmbedColorRed   = 15011085
+	DiscordEmbedColorWhite = 16777215
 )
 
 func (b *Bot) onDiscordReady(s *discordgo.Session, event *discordgo.Ready) {
@@ -44,7 +55,7 @@ func (b *Bot) onDiscordMessageCreate(s *discordgo.Session, message *discordgo.Me
 		return
 	}
 
-	if strings.HasPrefix(strings.ToLower(message.Content), "!pos") {
+	if strings.EqualFold(message.Content, "!pos") || strings.HasPrefix(strings.ToLower(message.Content), "!pos ") {
 		b.handleDiscordPOSCommand(message)
 	}
 }
@@ -124,6 +135,7 @@ func (b *Bot) handleDiscordPOSCommand(message *discordgo.MessageCreate) {
 			b.discord.ChannelMessageSend(message.ChannelID, "Oh wait, you're super \"important\" :nerd: You can also use `!pos stats` to display performance stats, `!pos restart` to restart the bot or `!pos shutdown` to shut it down completely :skull:")
 		}
 
+		b.recordCommandUsage("help")
 		log.WithField("author", message.Author.Username).Debug("Processed POS help Discord command")
 		return
 	} else if len(messageParts) >= 2 {
@@ -223,24 +235,120 @@ func (b *Bot) handleDiscordPOSCommand(message *discordgo.MessageCreate) {
 
 func (b *Bot) handleDiscordPOSDetailsCommand(channelID string, userID string, starbaseID int) {
 	b.discord.ChannelMessageSend(channelID, "Not implemented yet :innocent:")
+	b.recordCommandUsage("details")
 }
 
 func (b *Bot) handleDiscordPOSFuelCommand(channelID string, userID string) {
 	b.discord.ChannelMessageSend(channelID, "Not implemented yet :innocent:")
+	b.recordCommandUsage("fuel")
 }
 
 func (b *Bot) handleDiscordPOSListCommand(channelID string, userID string) {
 	b.discord.ChannelMessageSend(channelID, "Not implemented yet :innocent:")
+	b.recordCommandUsage("list")
 }
 
 func (b *Bot) handleDiscordPOSRestartCommand(channelID string, userID string) {
 	b.discord.ChannelMessageSend(channelID, "Not implemented yet :innocent:")
+	b.recordCommandUsage("restart")
 }
 
 func (b *Bot) handleDiscordPOSShutdownCommand(channelID string, userID string) {
 	b.discord.ChannelMessageSend(channelID, "Not implemented yet :innocent:")
+	b.recordCommandUsage("shutdown")
 }
 
 func (b *Bot) handleDiscordPOSStatsCommand(channelID string, userID string) {
-	b.discord.ChannelMessageSend(channelID, "Not implemented yet :innocent:")
+	fields := make([]*discordgo.MessageEmbedField, 0)
+
+	log.WithField("userID", userID).Debug("Gathering host info for Discord command")
+	hostInfo, err := host.Info()
+	if err != nil {
+		log.WithField("userID", userID).WithError(err).Warn("Failed to get host info")
+	} else {
+		uptime, _ := time.ParseDuration(fmt.Sprintf("%ds", hostInfo.Uptime))
+		fields = append(fields, &discordgo.MessageEmbedField{
+			Name:   "Host",
+			Value:  fmt.Sprintf("**Hostname**: %s, **OS**: %s %s, **uptime**: %v", hostInfo.Hostname, hostInfo.Platform, hostInfo.PlatformFamily, uptime),
+			Inline: false,
+		})
+	}
+
+	log.WithField("userID", userID).Debug("Gathering host CPU stats for Discord command")
+	cpuCount, err := cpu.Counts(false)
+	if err != nil {
+		log.WithField("userID", userID).WithError(err).Warn("Failed to get host CPU count")
+	} else {
+		cpuUsage, err := cpu.Percent(0, false)
+		if err != nil {
+			log.WithField("userID", userID).WithError(err).Warn("Failed to get host CPU usage")
+		} else {
+			fields = append(fields, &discordgo.MessageEmbedField{
+				Name:   "CPU",
+				Value:  fmt.Sprintf("**Number of cores**: %d, **usage**: %.2f", cpuCount, cpuUsage[0]),
+				Inline: false,
+			})
+		}
+	}
+
+	log.WithField("userID", userID).Debug("Gathering host load average stats for Discord command")
+	loadAvg, err := load.Avg()
+	if err != nil {
+		log.WithField("userID", userID).WithError(err).Warn("Failed to get host load average stats")
+	} else {
+		fields = append(fields, &discordgo.MessageEmbedField{
+			Name:   "Load average",
+			Value:  fmt.Sprintf("**1 min**: %.2f%%, **5 min**: %.2f%%, **15 min**: %.2f%%", loadAvg.Load1, loadAvg.Load5, loadAvg.Load15),
+			Inline: false,
+		})
+	}
+
+	log.WithField("userID", userID).Debug("Gathering host memory stats for Discord command")
+	vMem, err := mem.VirtualMemory()
+	if err != nil {
+		log.WithField("userID", userID).WithError(err).Warn("Failed to get host virtual memory stats")
+	} else {
+		fields = append(fields, &discordgo.MessageEmbedField{
+			Name:   "Virtual memory",
+			Value:  fmt.Sprintf("**Total**: %s, **available**: %s, **used**: %s (%.2f%%), **free**: %s", humanize.Bytes(vMem.Total), humanize.Bytes(vMem.Available), humanize.Bytes(vMem.Used), vMem.UsedPercent, humanize.Bytes(vMem.Free)),
+			Inline: false,
+		})
+	}
+
+	stats, err := b.retrieveCommandUsageStats()
+	if err != nil {
+		b.discord.ChannelMessageSend(channelID, ":poop: Seems like there was an error processing this command :poop:")
+		return
+	}
+
+	fields = append(fields, &discordgo.MessageEmbedField{
+		Name:   "POSbot",
+		Value:  fmt.Sprintf("**Version**: %s, **uptime**: %v", Version, time.Since(b.startTime)),
+		Inline: false,
+	})
+
+	for command, count := range stats {
+		desc := "times"
+		if count == 1 {
+			desc = "time"
+		}
+		fields = append(fields, &discordgo.MessageEmbedField{
+			Name:   fmt.Sprintf("Command usage `!pos %s`", command),
+			Value:  fmt.Sprintf("%d %s", count, desc),
+			Inline: true,
+		})
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Color:       DiscordEmbedColorWhite,
+		Title:       ":bar_chart: **POSbot** stats",
+		Description: "Runtime and command usage stats for **POSbot**",
+		Fields:      fields,
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: fmt.Sprintf("Stats generated at: %s", time.Now().UTC().Format(time.RFC1123)),
+		},
+	}
+
+	b.discord.ChannelMessageSendEmbed(channelID, embed)
+	b.recordCommandUsage("stats")
 }
