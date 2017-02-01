@@ -125,6 +125,7 @@ func (b *Bot) handleDiscordPOSCommand(message *discordgo.MessageCreate) {
 
 		monitored, err := b.getMonitoredStarbaseIDs()
 		if err != nil {
+			b.recordCommandError("help")
 			log.WithField("author", message.Author.Username).WithError(err).Warn("Failed to get monitored POS IDs")
 		}
 
@@ -143,6 +144,7 @@ func (b *Bot) handleDiscordPOSCommand(message *discordgo.MessageCreate) {
 		case "details":
 			log.WithField("author", message.Author.Username).Debug("Processing POS details Discord command")
 			if len(messageParts) < 3 {
+				b.recordCommandError("details")
 				b.discord.ChannelMessageSend(message.ChannelID, fmt.Sprintf("<@%s>: You'll have to tell me which POS you want to know more about...", message.Author.ID))
 				return
 			}
@@ -150,6 +152,7 @@ func (b *Bot) handleDiscordPOSCommand(message *discordgo.MessageCreate) {
 			starbaseID, err := strconv.ParseInt(messageParts[2], 10, 64)
 			if err != nil || starbaseID <= 0 {
 				log.WithField("starbaseID", starbaseID).WithError(err).Debug("Failed to parse starbaseID for Discord POS details command")
+				b.recordCommandError("details")
 				b.discord.ChannelMessageSend(message.ChannelID, fmt.Sprintf("<@%s>: Seems like you've provided an invalid POS ID %q :poop:", message.Author.ID, messageParts[2]))
 				return
 			}
@@ -177,6 +180,7 @@ func (b *Bot) handleDiscordPOSCommand(message *discordgo.MessageCreate) {
 					"author":  message.Author.Username,
 					"isAdmin": isAdmin,
 				}).Debug("Non-admin attempted to execute POS restart Discord command, ignoring")
+				b.recordCommandError("restart")
 				b.discord.ChannelMessageSend(message.ChannelID, fmt.Sprintf("You don't have permission to do that, <@%s> :rage: I'll just be ignoring you, alright? :zipper_mouth:", message.Author.ID))
 				return
 			}
@@ -197,6 +201,7 @@ func (b *Bot) handleDiscordPOSCommand(message *discordgo.MessageCreate) {
 					"author":  message.Author.Username,
 					"isAdmin": isAdmin,
 				}).Debug("Non-admin attempted to execute POS shutdown Discord command, ignoring")
+				b.recordCommandError("shutdown")
 				b.discord.ChannelMessageSend(message.ChannelID, fmt.Sprintf("You don't have permission to do that, <@%s> :rage: I'll just be ignoring you, alright? :zipper_mouth:", message.Author.ID))
 				return
 			}
@@ -217,6 +222,7 @@ func (b *Bot) handleDiscordPOSCommand(message *discordgo.MessageCreate) {
 					"author":  message.Author.Username,
 					"isAdmin": isAdmin,
 				}).Debug("Non-admin attempted to execute POS stats Discord command, ignoring")
+				b.recordCommandError("stats")
 				b.discord.ChannelMessageSend(message.ChannelID, fmt.Sprintf("You don't have permission to do that, <@%s> :rage: I'll just be ignoring you, alright? :zipper_mouth:", message.Author.ID))
 				return
 			}
@@ -235,27 +241,27 @@ func (b *Bot) handleDiscordPOSCommand(message *discordgo.MessageCreate) {
 
 func (b *Bot) handleDiscordPOSDetailsCommand(channelID string, userID string, starbaseID int) {
 	b.discord.ChannelMessageSend(channelID, "Not implemented yet :innocent:")
-	b.recordCommandUsage("details")
+	b.recordCommandError("details")
 }
 
 func (b *Bot) handleDiscordPOSFuelCommand(channelID string, userID string) {
 	b.discord.ChannelMessageSend(channelID, "Not implemented yet :innocent:")
-	b.recordCommandUsage("fuel")
+	b.recordCommandError("fuel")
 }
 
 func (b *Bot) handleDiscordPOSListCommand(channelID string, userID string) {
 	b.discord.ChannelMessageSend(channelID, "Not implemented yet :innocent:")
-	b.recordCommandUsage("list")
+	b.recordCommandError("list")
 }
 
 func (b *Bot) handleDiscordPOSRestartCommand(channelID string, userID string) {
 	b.discord.ChannelMessageSend(channelID, "Not implemented yet :innocent:")
-	b.recordCommandUsage("restart")
+	b.recordCommandError("restart")
 }
 
 func (b *Bot) handleDiscordPOSShutdownCommand(channelID string, userID string) {
 	b.discord.ChannelMessageSend(channelID, "Not implemented yet :innocent:")
-	b.recordCommandUsage("shutdown")
+	b.recordCommandError("shutdown")
 }
 
 func (b *Bot) handleDiscordPOSStatsCommand(channelID string, userID string) {
@@ -315,26 +321,31 @@ func (b *Bot) handleDiscordPOSStatsCommand(channelID string, userID string) {
 		})
 	}
 
-	stats, err := b.retrieveCommandUsageStats()
-	if err != nil {
-		b.discord.ChannelMessageSend(channelID, ":poop: Seems like there was an error processing this command :poop:")
-		return
-	}
-
 	fields = append(fields, &discordgo.MessageEmbedField{
 		Name:   "POSbot",
 		Value:  fmt.Sprintf("**Version**: %s, **uptime**: %v", Version, time.Since(b.startTime)),
 		Inline: false,
 	})
 
-	for command, count := range stats {
-		desc := "times"
-		if count == 1 {
-			desc = "time"
+	stats, err := b.retrieveCommandStats()
+	if err != nil {
+		b.recordCommandError("stats")
+		b.discord.ChannelMessageSend(channelID, ":poop: Seems like there was an error processing this command :poop:")
+		return
+	}
+
+	for command, stat := range stats {
+		descUsage := "times"
+		descError := "times"
+		if stat.Usage == 1 {
+			descUsage = "time"
+		}
+		if stat.Error == 1 {
+			descError = "time"
 		}
 		fields = append(fields, &discordgo.MessageEmbedField{
 			Name:   fmt.Sprintf("Command usage `!pos %s`", command),
-			Value:  fmt.Sprintf("%d %s", count, desc),
+			Value:  fmt.Sprintf("**Usage**: %d %s, **error**: %d %s", stat.Usage, descUsage, stat.Error, descError),
 			Inline: true,
 		})
 	}

@@ -24,17 +24,28 @@ func (b *Bot) recordCommandUsage(command string) {
 	}
 }
 
-func (b *Bot) retrieveCommandUsageStats() (map[string]int, error) {
+func (b *Bot) recordCommandError(command string) {
 	r := b.redis.Get()
 	defer r.Close()
 
-	keys, err := redis.Strings(r.Do("KEYS", "posbotCommandUsage*"))
+	_, err := r.Do("INCR", fmt.Sprintf("posbotCommandError%s", command))
+	if err != nil {
+		log.WithField("command", command).WithError(err).Warn("Failed to record command error in redis")
+	}
+}
+
+func (b *Bot) retrieveCommandStats() (map[string]struct{ Usage, Error int }, error) {
+	r := b.redis.Get()
+	defer r.Close()
+
+	stats := make(map[string]struct{ Usage, Error int })
+
+	usage, err := redis.Strings(r.Do("KEYS", "posbotCommandUsage*"))
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to get command usage keys from redis")
 	}
 
-	stats := make(map[string]int)
-	for _, key := range keys {
+	for _, key := range usage {
 		if len(key) <= 18 {
 			// Missing command "name" in key
 			continue
@@ -42,11 +53,36 @@ func (b *Bot) retrieveCommandUsageStats() (map[string]int, error) {
 
 		count, err := redis.Int(r.Do("GET", key))
 		if err != nil {
-			log.WithField("key", key).WithError(err).Warn("Failed to retrieve usage count from redis")
+			log.WithField("key", key).WithError(err).Warn("Failed to retrieve command usage count from redis")
 			continue
 		}
 
-		stats[key[18:]] = count
+		stats[key[18:]] = struct{ Usage, Error int }{Usage: count, Error: 0}
+	}
+
+	error, err := redis.Strings(r.Do("KEYS", "posbotCommandError*"))
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to get command error keys from redis")
+	}
+
+	for _, key := range error {
+		if len(key) <= 18 {
+			// Missing command "name" in key
+			continue
+		}
+
+		count, err := redis.Int(r.Do("GET", key))
+		if err != nil {
+			log.WithField("key", key).WithError(err).Warn("Failed to retrieve command error count from redis")
+			continue
+		}
+
+		s, ok := stats[key[18:]]
+		if !ok {
+			s = struct{ Usage, Error int }{Usage: 0, Error: 0}
+		}
+		s.Error = count
+		stats[key[18:]] = s
 	}
 
 	return stats, nil
