@@ -2,10 +2,10 @@ package main
 
 import (
 	"fmt"
+	"github.com/MorpheusXAUT/eveapi"
 	"github.com/Sirupsen/logrus"
 	"github.com/bwmarrin/discordgo"
 	"github.com/dustin/go-humanize"
-	"github.com/morpheusxaut/eveapi"
 	"github.com/pkg/errors"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/host"
@@ -327,10 +327,20 @@ func (b *Bot) handleDiscordPOSListCommand(channelID string, userID string) {
 			Inline: true,
 		})
 
+		corporationName, err := b.getCorporationNameFromID(starbase.StandingOwnerID)
+		if err != nil {
+			log.WithFields(logrus.Fields{
+				"userID": userID,
+				"starbaseID": starbase.ID,
+				"corporationID": starbase.StandingOwnerID,
+			}).WithError(err).Warn("Failed to get corporation name from ID")
+			corporationName = fmt.Sprintf("*unknown corporation - %d*", starbase.StandingOwnerID)
+		}
+
 		embed := &discordgo.MessageEmbed{
 			Color:       color,
 			Title:       fmt.Sprintf(":stars: POS %d/%d", i+1, len(starbases.Starbases)),
-			Description: fmt.Sprintf("POS owned by *Corp#%d*", starbase.StandingOwnerID),
+			Description: fmt.Sprintf("POS owned by **%s**", corporationName),
 			Fields:      fields,
 			Footer: &discordgo.MessageEmbedFooter{
 				Text: fmt.Sprintf("POS overview data cached until: %v EVE time", starbases.CachedUntil),

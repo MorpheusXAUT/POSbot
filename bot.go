@@ -3,13 +3,14 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/MorpheusXAUT/eveapi"
+	"github.com/MorpheusXAUT/evesi"
 	"github.com/bwmarrin/discordgo"
 	"github.com/garyburd/redigo/redis"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gregjones/httpcache"
 	httpredis "github.com/gregjones/httpcache/redis"
 	"github.com/jmoiron/sqlx"
-	"github.com/morpheusxaut/eveapi"
 	"github.com/pkg/errors"
 	"net/http"
 	"os"
@@ -26,6 +27,7 @@ var (
 
 type Bot struct {
 	discord *discordgo.Session
+	esi     *evesi.APIClient
 	eve     eveapi.API
 	http    *http.Client
 	mysql   *sqlx.DB
@@ -105,6 +107,9 @@ func NewBot(config *BotConfig) (*Bot, error) {
 		Transport: transport,
 		Timeout:   time.Second * 90,
 	}
+
+	log.Debug("Initialising ESI connection")
+	bot.esi = evesi.NewAPIClient(bot.http, UserAgent)
 
 	log.Debug("Initialising EVE connection")
 	bot.eve = eveapi.API{

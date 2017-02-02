@@ -3,8 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/MorpheusXAUT/eveapi"
 	"github.com/garyburd/redigo/redis"
-	"github.com/morpheusxaut/eveapi"
 	"github.com/pkg/errors"
 	"strings"
 )

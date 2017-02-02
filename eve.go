@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/garyburd/redigo/redis"
-	"github.com/morpheusxaut/eveapi"
+	"github.com/MorpheusXAUT/eveapi"
 	"github.com/pkg/errors"
 )
 
@@ -82,4 +82,25 @@ func (b *Bot) retrieveStarbaseDetails(starbaseID int) (*eveapi.StarbaseDetails, 
 	}
 
 	return starbase, nil
+}
+
+func (b *Bot) getCorporationNameFromID(corporationID int) (string, error) {
+	names, _, err := b.esi.CorporationApi.GetCorporationsNames([]int64{int64(corporationID)}, nil)
+	if err != nil {
+		return "", errors.Wrap(err, "Failed to get corporation name from ID")
+	}
+
+	corporationName := ""
+	for _, name := range names {
+		if name.CorporationId == int32(corporationID) {
+			corporationName = name.CorporationName
+		}
+	}
+
+	if len(corporationName) == 0 {
+		log.WithField("corporationID", corporationID).Warn("Did not find name for corporation")
+		return "", errors.New("Did not find name for corporation")
+	}
+
+	return corporationName, nil
 }
