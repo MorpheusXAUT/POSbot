@@ -10,6 +10,15 @@ func (b *Bot) monitorStarbaseFuel() {
 
 }
 
+func (b *Bot) isStarbaseMonitored(starbaseID int) bool {
+	for _, id := range b.config.EVE.IgnoredStarbases {
+		if starbaseID == id {
+			return false
+		}
+	}
+	return true
+}
+
 func (b *Bot) getMonitoredStarbaseIDs() ([]int, error) {
 	starbases, err := b.retrieveStarbaseList()
 	if err != nil {
@@ -18,14 +27,7 @@ func (b *Bot) getMonitoredStarbaseIDs() ([]int, error) {
 
 	monitored := make([]int, 0)
 	for _, starbase := range starbases.Starbases {
-		ignored := false
-		for _, id := range b.config.EVE.IgnoredStarbases {
-			if starbase.ID == id {
-				ignored = true
-				break
-			}
-		}
-		if !ignored {
+		if b.isStarbaseMonitored(starbase.ID) {
 			monitored = append(monitored, starbase.ID)
 		}
 	}
@@ -40,6 +42,7 @@ func (b *Bot) retrieveStarbaseList() (*eveapi.StarbaseList, error) {
 	}
 
 	if err != redis.ErrNil && starbases != nil {
+		log.Debug("Retrieved starbase list from cache")
 		return starbases, nil
 	}
 

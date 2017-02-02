@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"time"
 )
 
 const (
@@ -28,12 +27,12 @@ type API struct {
 	Server    string
 	APIKey    Key
 	UserAgent string
-	Timeout   time.Duration
+	Client    *http.Client
 	Debug     bool
 }
 
 func Simple(key Key) *API {
-	return &API{Tranquility, key, defaultUserAgent, 0, false}
+	return &API{Tranquility, key, defaultUserAgent, http.DefaultClient, false}
 }
 
 type APIResult struct {
@@ -57,10 +56,7 @@ func (api API) Call(path string, args url.Values, output interface{}) error {
 	}
 	args.Set("keyID", api.APIKey.ID)
 	args.Set("vCode", api.APIKey.VCode)
-	client := http.Client{
-		Timeout: api.Timeout,
-	}
-	resp, err := client.PostForm(uri, args)
+	resp, err := api.Client.PostForm(uri, args)
 	if err != nil {
 		return err
 	}

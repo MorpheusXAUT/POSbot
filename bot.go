@@ -5,8 +5,13 @@ import (
 	"fmt"
 	"github.com/bwmarrin/discordgo"
 	"github.com/garyburd/redigo/redis"
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/gregjones/httpcache"
+	httpredis "github.com/gregjones/httpcache/redis"
+	"github.com/jmoiron/sqlx"
 	"github.com/morpheusxaut/eveapi"
 	"github.com/pkg/errors"
+	"net/http"
 	"os"
 	"time"
 )
@@ -15,9 +20,15 @@ const (
 	UserAgent string = "POSbot v" + Version + " - github.com/MorpheusXAUT/POSbot"
 )
 
+var (
+	mysqlRequiredTableNames []string = []string{"mapDenormalize", "invTypes"}
+)
+
 type Bot struct {
 	discord *discordgo.Session
 	eve     eveapi.API
+	http    *http.Client
+	mysql   *sqlx.DB
 	redis   *redis.Pool
 
 	config    *BotConfig
@@ -43,6 +54,12 @@ type BotConfig struct {
 		Password string `json:"password"`
 		Database int    `json:"database"`
 	} `json:"redis"`
+	MySQL struct {
+		Address  string `json:"address"`
+		Username string `json:"username"`
+		Password string `json:"password"`
+		Database string `json:"database"`
+	} `json:"mysql"`
 }
 
 func NewBot(config *BotConfig) (*Bot, error) {
@@ -52,39 +69,6 @@ func NewBot(config *BotConfig) (*Bot, error) {
 	}
 
 	var err error
-
-	log.Debug("Initialising Discord connection")
-	bot.discord, err = discordgo.New(fmt.Sprintf("Bot %s", bot.config.Discord.Token))
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to create Discord session")
-	}
-
-	bot.discord.AddHandler(bot.onDiscordReady)
-	bot.discord.AddHandler(bot.onDiscordGuildCreate)
-	bot.discord.AddHandler(bot.onDiscordMessageCreate)
-
-	err = bot.discord.Open()
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to open Discord session")
-	}
-
-	log.Debug("Initialising EVE connection")
-	bot.eve = eveapi.API{
-		Server: eveapi.Tranquility,
-		APIKey: eveapi.Key{
-			ID:    bot.config.EVE.KeyID,
-			VCode: bot.config.EVE.KeyVCode,
-		},
-		UserAgent: UserAgent,
-		Timeout:   60 * time.Second,
-		Debug:     false,
-	}
-
-	_, err = bot.eve.ServerStatus()
-	if err != nil {
-		bot.discord.Close()
-		return nil, errors.Wrap(err, "Failed to query EVE server status")
-	}
 
 	log.Debug("Initialising Redis connection")
 	redisOptions := make([]redis.DialOption, 0)
@@ -96,20 +80,100 @@ func NewBot(config *BotConfig) (*Bot, error) {
 	}
 
 	bot.redis = &redis.Pool{
-		MaxIdle:     3,
-		IdleTimeout: 240 * time.Second,
+		MaxIdle:     50,
+		MaxActive:   0,
+		Wait:        false,
+		IdleTimeout: 90 * time.Second,
 		Dial: func() (redis.Conn, error) {
 			return redis.Dial("tcp", bot.config.Redis.Address, redisOptions...)
 		},
 	}
 
 	r := bot.redis.Get()
-	defer r.Close()
 
 	_, err = r.Do("PING")
+	r.Close()
 	if err != nil {
-		bot.discord.Close()
+		bot.redis.Close()
 		return nil, errors.Wrap(err, "Failed to ping Redis server")
+	}
+
+	log.Debug("Creating httpcache client")
+
+	transport := httpcache.NewTransport(httpredis.NewWithClient(bot.redis.Get()))
+	bot.http = &http.Client{
+		Transport: transport,
+		Timeout:   time.Second * 90,
+	}
+
+	log.Debug("Initialising EVE connection")
+	bot.eve = eveapi.API{
+		Server: eveapi.Tranquility,
+		APIKey: eveapi.Key{
+			ID:    bot.config.EVE.KeyID,
+			VCode: bot.config.EVE.KeyVCode,
+		},
+		UserAgent: UserAgent,
+		Client:    bot.http,
+		Debug:     false,
+	}
+
+	_, err = bot.eve.ServerStatus()
+	if err != nil {
+		bot.redis.Close()
+		return nil, errors.Wrap(err, "Failed to query EVE server status")
+	}
+
+	log.Debug("Initialising MySQL connection")
+	bot.mysql, err = sqlx.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s", bot.config.MySQL.Username, bot.config.MySQL.Password, bot.config.MySQL.Address, bot.config.MySQL.Database))
+	if err != nil {
+		bot.redis.Close()
+		return nil, errors.Wrap(err, "Failed to open connection to MySQL server")
+	}
+
+	err = bot.mysql.Ping()
+	if err != nil {
+		bot.redis.Close()
+		return nil, errors.Wrap(err, "Failed to ping MySQL server")
+	}
+
+	query, args, err := sqlx.In("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = ? AND table_name IN (?)", bot.config.MySQL.Database, mysqlRequiredTableNames)
+	if err != nil {
+		bot.redis.Close()
+		bot.mysql.Close()
+		return nil, errors.Wrap(err, "Failed to prepare required MySQL tables check")
+	}
+
+	var tableCount int
+	err = bot.mysql.Get(&tableCount, query, args...)
+	if err != nil {
+		bot.redis.Close()
+		bot.mysql.Close()
+		return nil, errors.Wrap(err, "Failed to check required MySQL tables")
+	}
+	if tableCount != len(mysqlRequiredTableNames) {
+		bot.redis.Close()
+		bot.mysql.Close()
+		return nil, errors.Wrap(err, "Missing required MySQL tables")
+	}
+
+	log.Debug("Initialising Discord connection")
+	bot.discord, err = discordgo.New(fmt.Sprintf("Bot %s", bot.config.Discord.Token))
+	if err != nil {
+		bot.redis.Close()
+		bot.mysql.Close()
+		return nil, errors.Wrap(err, "Failed to create Discord session")
+	}
+
+	bot.discord.AddHandler(bot.onDiscordReady)
+	bot.discord.AddHandler(bot.onDiscordGuildCreate)
+	bot.discord.AddHandler(bot.onDiscordMessageCreate)
+
+	err = bot.discord.Open()
+	if err != nil {
+		bot.redis.Close()
+		bot.mysql.Close()
+		return nil, errors.Wrap(err, "Failed to open Discord session")
 	}
 
 	return bot, nil
@@ -133,6 +197,7 @@ func (b *Bot) Shutdown() {
 
 	b.discord.Close()
 	b.redis.Close()
+	b.mysql.Close()
 
 	log.Debug("Clean bot shutdown completed")
 }
@@ -162,6 +227,9 @@ func parseConfigFile(configFile string) (*BotConfig, error) {
 	}
 	if len(config.Redis.Address) == 0 {
 		return nil, errors.New("Redis config missing required data")
+	}
+	if len(config.MySQL.Address) == 0 || len(config.MySQL.Username) == 0 || len(config.MySQL.Password) == 0 || len(config.MySQL.Database) == 0 {
+		return nil, errors.New("MySQL config missing required data")
 	}
 
 	return config, nil

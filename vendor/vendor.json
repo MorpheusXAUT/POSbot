@@ -51,16 +51,46 @@
 			"revisionTime": "2016-11-16T06:46:58Z"
 		},
 		{
+			"checksumSHA1": "blZyJ896pCiBGuD5YJU5XXG95Ps=",
+			"path": "github.com/go-sql-driver/mysql",
+			"revision": "2e00b5cd70399450106cec6431c2e2ce3cae5034",
+			"revisionTime": "2016-12-24T12:10:19Z"
+		},
+		{
 			"checksumSHA1": "zYwgnVSKDLqf3PKOl47d7V3vGb4=",
 			"path": "github.com/gorilla/websocket",
 			"revision": "4e4c8d08b4b90add48392b80324adb3630ff3431",
 			"revisionTime": "2017-01-24T23:37:53Z"
 		},
 		{
-			"checksumSHA1": "ChX4j3f+As0DJ8vfQlsXvh0aN+E=",
+			"checksumSHA1": "qkNspq/9Be7WmGfFVtq8cLrT6AE=",
+			"path": "github.com/gregjones/httpcache",
+			"revision": "413781778738c08fdbb98e1dd65f5abffe8832d0",
+			"revisionTime": "2016-08-28T16:52:48Z"
+		},
+		{
+			"checksumSHA1": "5u2IhzCq7zWIzvHOgVVwhm//kjM=",
+			"path": "github.com/gregjones/httpcache/redis",
+			"revision": "413781778738c08fdbb98e1dd65f5abffe8832d0",
+			"revisionTime": "2016-08-28T16:52:48Z"
+		},
+		{
+			"checksumSHA1": "2oTsnZqiRmsN70UcgJULWhUrKeM=",
+			"path": "github.com/jmoiron/sqlx",
+			"revision": "f980a91bdc37abef88269b8f122d7de6352102f5",
+			"revisionTime": "2017-01-21T10:35:19Z"
+		},
+		{
+			"checksumSHA1": "kt7wuWQ5kHrtxlis12wLWJhUhHM=",
+			"path": "github.com/jmoiron/sqlx/reflectx",
+			"revision": "f980a91bdc37abef88269b8f122d7de6352102f5",
+			"revisionTime": "2017-01-21T10:35:19Z"
+		},
+		{
+			"checksumSHA1": "kXc3E8CAqyEnz/tKtCIYtQ/h/eA=",
 			"path": "github.com/morpheusxaut/eveapi",
-			"revision": "ddc69ca0c36e8c732259860a5bb82fe43c7d8aac",
-			"revisionTime": "2017-01-25T13:13:29Z"
+			"revision": "4d1ce6fd274525a7b25dc99c215ee3f4d6569677",
+			"revisionTime": "2017-02-01T22:17:30Z"
 		},
 		{
 			"checksumSHA1": "iwLqOY6Nr1BitBUex4K0Wep3JL8=",
