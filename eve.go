@@ -63,7 +63,7 @@ func (b *Bot) checkStarbaseFuel() {
 
 			if int(fuel.TimeRemaining) <= b.config.EVE.FuelCriticalThreshold {
 				if b.shouldSendNotification(pos.ID, fuel.TypeID, 2) {
-					b.discord.ChannelMessageSend(b.config.Discord.ChannelID, fmt.Sprintf("@everyone :rotating_light::alarm_clock: POS at **%s** (owned by %s) only has __**%s**__ of fuel **%s** left. FIX THIS SHIT NOW :rage:", pos.LocationName, pos.OwnerName, remaining, fuel.TypeName))
+					b.discord.ChannelMessageSend(b.config.Discord.ChannelID, fmt.Sprintf("@everyone :rotating_light: POS at **%s** (owned by %s) only has __**%s**__ of fuel **%s** left. FIX THIS SHIT NOW :rage:", pos.LocationName, pos.OwnerName, remaining, fuel.TypeName))
 					log.WithFields(logrus.Fields{
 						"starbaseID":   pos.ID,
 						"fuelTypeID":   fuel.TypeID,

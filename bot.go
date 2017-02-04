@@ -47,7 +47,8 @@ type BotConfig struct {
 		BotAdminRoleID       string `json:"botAdminRoleID"`
 		Verbose              bool   `json:"verbose"`
 		Debug                bool   `json:"debug"`
-		NotificationCooldown int    `json:"notificationCooldown"`
+		NotificationWarning  int    `json:"notificationWarning"`
+		NotificationCritical int    `json:"notificationCritical"`
 	} `json:"discord"`
 	EVE struct {
 		KeyID                 string `json:"keyID"`
