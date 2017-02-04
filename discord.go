@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/MorpheusXAUT/durafmt"
 	"github.com/MorpheusXAUT/eveapi"
 	"github.com/Sirupsen/logrus"
 	"github.com/bwmarrin/discordgo"
@@ -249,8 +250,114 @@ func (b *Bot) handleDiscordPOSDetailsCommand(channelID string, userID string, st
 }
 
 func (b *Bot) handleDiscordPOSFuelCommand(channelID string, userID string) {
-	b.discord.ChannelMessageSend(channelID, "Not implemented yet :innocent:")
-	b.recordCommandError("fuel")
+	err := b.updateMonitoredStarbaseDetails()
+	if err != nil {
+		log.WithField("userID", userID).WithError(err).Warn("Failed to update monitored starbase details for Discord command")
+		b.recordCommandError("fuel")
+		b.discord.ChannelMessageSend(channelID, fmt.Sprintf("It appears like I can't update the POS details at the moment :neutral_face: My deepest apologies, <@%s>", userID))
+		return
+	}
+
+	monitored, err := b.getMonitoredStarbaseIDs()
+	if err != nil {
+		log.WithField("userID", userID).WithError(err).Warn("Failed to retrieve monitored starbase IDs for Discord command")
+		b.recordCommandError("fuel")
+		b.discord.ChannelMessageSend(channelID, fmt.Sprintf("It appears like I can't retrieve a list of monitored POSes at the moment :neutral_face: My deepest apologies, <@%s>", userID))
+		return
+	}
+
+	b.discord.ChannelMessageSend(channelID, fmt.Sprintf("<@%s> is currently monitoring **%d** POSes.", b.discord.State.User.ID, len(monitored)))
+	b.discord.ChannelTyping(channelID)
+
+	for i, id := range monitored {
+		pos, err := b.getPOSFromStarbaseID(id)
+		if err != nil {
+			log.WithFields(logrus.Fields{
+				"userID":     userID,
+				"starbaseID": id,
+			}).WithError(err).Warn("Failed to get POS for Discord command")
+			continue
+		}
+
+		fields := make([]*discordgo.MessageEmbedField, 0)
+		fields = append(fields, &discordgo.MessageEmbedField{
+			Name:   "Location",
+			Value:  strings.Replace(pos.LocationName, "Moon", ":full_moon_with_face:", -1),
+			Inline: true,
+		})
+
+		_, strState := formatStarbaseStateForDiscord(pos.State)
+		fields = append(fields, &discordgo.MessageEmbedField{
+			Name:   "State",
+			Value:  fmt.Sprintf("%s %s", strState, pos.State),
+			Inline: true,
+		})
+
+		fields = append(fields, &discordgo.MessageEmbedField{
+			Name:   "Size",
+			Value:  pos.Size.String(),
+			Inline: true,
+		})
+
+		fuelStatus := 0
+		for _, fuel := range pos.Fuel {
+			remaining, err := durafmt.ParseString(fmt.Sprintf("%fh", fuel.TimeRemaining))
+			if err != nil {
+				log.WithFields(logrus.Fields{
+					"userID":     userID,
+					"starbaseID": pos.ID,
+					"fuelTypeID": fuel.TypeID,
+				}).WithError(err).Warn("Failed to parse remaining fuel duration")
+				continue
+			}
+			constantly := "no"
+			if fuel.ConstantlyRequired {
+				constantly = "yes"
+			}
+
+			remain := remaining.Short()
+			if fuel.ConstantlyRequired {
+				if int(fuel.TimeRemaining) <= b.config.EVE.FuelCriticalThreshold {
+					remain = fmt.Sprintf("__**%s**__", remain)
+					fuelStatus = 2
+				} else if int(fuel.TimeRemaining) <= b.config.EVE.FuelWarningThreshold {
+					remain = fmt.Sprintf("**%s**", remain)
+					if fuelStatus < 1 {
+						fuelStatus = 1
+					}
+				}
+			}
+
+			fields = append(fields, &discordgo.MessageEmbedField{
+				Name:   fmt.Sprintf("Fuel *%s*", fuel.TypeName),
+				Value:  fmt.Sprintf("*quantity*: %d, *remaining*: %s, *used/h*: %d, *constantly required*: %s", fuel.Quantity, remain, fuel.Required, constantly),
+				Inline: false,
+			})
+		}
+
+		color := DiscordEmbedColorGreen
+		if fuelStatus == 1 {
+			color = DiscordEmbedColorOrange
+		} else if fuelStatus == 2 {
+			color = DiscordEmbedColorRed
+		}
+
+		embed := &discordgo.MessageEmbed{
+			Color:       color,
+			Title:       fmt.Sprintf(":stars: POS %d/%d", i+1, len(monitored)),
+			Description: fmt.Sprintf("POS owned by **%s**", pos.OwnerName),
+			Fields:      fields,
+			Footer: &discordgo.MessageEmbedFooter{
+				Text: fmt.Sprintf("POS details cached for %v", pos.DetailsCached.Until.Sub(pos.DetailsCached.Current)),
+			},
+		}
+
+		b.discord.ChannelMessageSendEmbed(channelID, embed)
+		b.discord.ChannelTyping(channelID)
+	}
+
+	b.discord.ChannelMessageSend(channelID, fmt.Sprintf("I will shout at you if a POS should fall under %dh fuel remaining (warning, *orange*) and absolutely flip out at %dh fuel left (critical, *red*) :hugging:", b.config.EVE.FuelWarningThreshold, b.config.EVE.FuelCriticalThreshold))
+	b.recordCommandUsage("fuel")
 }
 
 func (b *Bot) handleDiscordPOSListCommand(channelID string, userID string) {
@@ -283,33 +390,7 @@ func (b *Bot) handleDiscordPOSListCommand(channelID string, userID string) {
 			Inline: true,
 		})
 
-		var color int
-		var strState string
-		switch starbase.State {
-		case eveapi.StarbaseStateOnline:
-			color = DiscordEmbedColorGreen
-			strState = ":satellite_orbital:"
-			break
-		case eveapi.StarbaseStateOnlining:
-			color = DiscordEmbedColorGreen
-			strState = ":construction_site:"
-			break
-		case eveapi.StarbaseStateAnchored:
-			color = DiscordEmbedColorOrange
-			strState = ":anchor:"
-			break
-		case eveapi.StarbaseStateUnanchored:
-			color = DiscordEmbedColorRed
-			strState = ":warning:"
-			break
-		case eveapi.StarbaseStateReinforced:
-			color = DiscordEmbedColorRed
-			strState = ":space_invader:"
-			break
-		default:
-			color = DiscordEmbedColorRed
-			strState = ":x:"
-		}
+		color, strState := formatStarbaseStateForDiscord(starbase.State)
 		fields = append(fields, &discordgo.MessageEmbedField{
 			Name:   "State",
 			Value:  fmt.Sprintf("%s %s", strState, starbase.State),
@@ -330,8 +411,8 @@ func (b *Bot) handleDiscordPOSListCommand(channelID string, userID string) {
 		corporationName, err := b.getCorporationNameFromID(starbase.StandingOwnerID)
 		if err != nil {
 			log.WithFields(logrus.Fields{
-				"userID": userID,
-				"starbaseID": starbase.ID,
+				"userID":        userID,
+				"starbaseID":    starbase.ID,
 				"corporationID": starbase.StandingOwnerID,
 			}).WithError(err).Warn("Failed to get corporation name from ID")
 			corporationName = fmt.Sprintf("*unknown corporation - %d*", starbase.StandingOwnerID)
@@ -343,7 +424,7 @@ func (b *Bot) handleDiscordPOSListCommand(channelID string, userID string) {
 			Description: fmt.Sprintf("POS owned by **%s**", corporationName),
 			Fields:      fields,
 			Footer: &discordgo.MessageEmbedFooter{
-				Text: fmt.Sprintf("POS overview data cached until: %v EVE time", starbases.CachedUntil),
+				Text: fmt.Sprintf("POS overview cached for %v", starbases.CachedUntil.Time.Sub(starbases.CurrentTime.Time)),
 			},
 		}
 
@@ -430,6 +511,7 @@ func (b *Bot) handleDiscordPOSStatsCommand(channelID string, userID string) {
 
 	stats, err := b.retrieveCommandStats()
 	if err != nil {
+		log.WithField("userID", userID).WithError(err).Warn("Failed to retrieve command stats")
 		b.recordCommandError("stats")
 		b.discord.ChannelMessageSend(channelID, ":poop: Seems like there was an error processing this command :poop:")
 		return
@@ -463,4 +545,21 @@ func (b *Bot) handleDiscordPOSStatsCommand(channelID string, userID string) {
 
 	b.discord.ChannelMessageSendEmbed(channelID, embed)
 	b.recordCommandUsage("stats")
+}
+
+func formatStarbaseStateForDiscord(state eveapi.StarbaseState) (int, string) {
+	switch state {
+	case eveapi.StarbaseStateOnline:
+		return DiscordEmbedColorGreen, ":satellite_orbital:"
+	case eveapi.StarbaseStateOnlining:
+		return DiscordEmbedColorGreen, ":construction_site:"
+	case eveapi.StarbaseStateAnchored:
+		return DiscordEmbedColorOrange, ":anchor:"
+	case eveapi.StarbaseStateUnanchored:
+		return DiscordEmbedColorRed, ":warning:"
+	case eveapi.StarbaseStateReinforced:
+		return DiscordEmbedColorRed, ":space_invader:"
+	default:
+		return DiscordEmbedColorRed, ":x:"
+	}
 }

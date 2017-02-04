@@ -35,21 +35,27 @@ type Bot struct {
 
 	config    *BotConfig
 	startTime time.Time
+	stop      chan bool
+	ticker    *time.Ticker
 }
 
 type BotConfig struct {
 	Discord struct {
-		Token          string `json:"token"`
-		GuildID        string `json:"guildID"`
-		ChannelID      string `json:"channelID"`
-		BotAdminRoleID string `json:"botAdminRoleID"`
-		Verbose        bool   `json:"verbose"`
-		Debug          bool   `json:"debug"`
+		Token                string `json:"token"`
+		GuildID              string `json:"guildID"`
+		ChannelID            string `json:"channelID"`
+		BotAdminRoleID       string `json:"botAdminRoleID"`
+		Verbose              bool   `json:"verbose"`
+		Debug                bool   `json:"debug"`
+		NotificationCooldown int    `json:"notificationCooldown"`
 	} `json:"discord"`
 	EVE struct {
-		KeyID            string `json:"keyID"`
-		KeyVCode         string `json:"keyvCode"`
-		IgnoredStarbases []int  `json:"ignoredStarbases"`
+		KeyID                 string `json:"keyID"`
+		KeyVCode              string `json:"keyvCode"`
+		IgnoredStarbases      []int  `json:"ignoredStarbases"`
+		MonitorInterval       int    `json:"monitorInterval"`
+		FuelWarningThreshold  int    `json:"fuelWarningThreshold"`
+		FuelCriticalThreshold int    `json:"fuelCriticalThreshold"`
 	} `json:"eve"`
 	Redis struct {
 		Address  string `json:"address"`
@@ -68,6 +74,7 @@ func NewBot(config *BotConfig) (*Bot, error) {
 	bot := &Bot{
 		config:    config,
 		startTime: time.Now().UTC(),
+		stop:      make(chan bool, 1),
 	}
 
 	var err error
@@ -181,6 +188,10 @@ func NewBot(config *BotConfig) (*Bot, error) {
 		return nil, errors.Wrap(err, "Failed to open Discord session")
 	}
 
+	go bot.monitoringLoop()
+	bot.ticker = time.NewTicker(time.Second * time.Duration(bot.config.EVE.MonitorInterval))
+	go bot.checkStarbaseFuel() // trigger once to avoid having to wait MonitorInterval seconds first
+
 	return bot, nil
 }
 
@@ -195,6 +206,9 @@ func NewBotFromConfigFile(configFile string) (*Bot, error) {
 
 func (b *Bot) Shutdown() {
 	log.Debug("Clean bot shutdown initiated")
+
+	b.ticker.Stop()
+	b.stop <- true
 
 	if b.config.Discord.Debug {
 		b.discord.ChannelMessageSend(b.config.Discord.ChannelID, ":robot: POSbot shutting down :skull_crossbones:")
@@ -238,4 +252,17 @@ func parseConfigFile(configFile string) (*BotConfig, error) {
 	}
 
 	return config, nil
+}
+
+func (b *Bot) monitoringLoop() {
+	for {
+		select {
+		case <-b.stop:
+			log.Debug("Stopping monitoring loop")
+			return
+		case <-b.ticker.C:
+			b.checkStarbaseFuel()
+			break
+		}
+	}
 }

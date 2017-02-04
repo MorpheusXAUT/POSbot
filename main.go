@@ -3,10 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/Sirupsen/logrus"
-	"github.com/bwmarrin/discordgo"
 	"github.com/MorpheusXAUT/POSbot/util"
 	"github.com/MorpheusXAUT/eveapi"
+	"github.com/Sirupsen/logrus"
+	"github.com/bwmarrin/discordgo"
 	"os"
 	"os/signal"
 	"strings"
