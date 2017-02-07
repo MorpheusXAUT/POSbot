@@ -21,10 +21,6 @@ const (
 	UserAgent string = "POSbot v" + Version + " - github.com/MorpheusXAUT/POSbot"
 )
 
-var (
-	mysqlRequiredTableNames []string = []string{"mapDenormalize", "invTypes"}
-)
-
 type Bot struct {
 	discord *discordgo.Session
 	esi     *evesi.APIClient
