@@ -37,7 +37,7 @@ func (b *Bot) checkStarbaseFuel() {
 
 		pos, err := b.getPOSFromStarbaseID(starbaseID)
 		if err != nil {
-			log.WithField("starbaseID", pos.ID).WithError(err).Warn("Failed to get POS from starbaseID")
+			log.WithField("starbaseID", starbaseID).WithError(err).Warn("Failed to get POS from starbaseID")
 			if b.config.Discord.Verbose {
 				b.discord.ChannelMessage(b.config.Discord.ChannelID, fmt.Sprintf(":warning: There was an error retrieving POS #%d :warning:", starbaseID))
 			}
