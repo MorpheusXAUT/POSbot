@@ -348,7 +348,7 @@ func (b *Bot) handleDiscordPOSFuelCommand(channelID string, userID string) {
 			Description: fmt.Sprintf("POS owned by **%s**", pos.OwnerName),
 			Fields:      fields,
 			Footer: &discordgo.MessageEmbedFooter{
-				Text: fmt.Sprintf("POS details cached for %v", pos.DetailsCached.Until.Sub(pos.DetailsCached.Current)),
+				Text: fmt.Sprintf("POS details cached for %v", pos.DetailsCached.Until.Sub(time.Now().UTC())),
 			},
 		}
 
@@ -424,7 +424,7 @@ func (b *Bot) handleDiscordPOSListCommand(channelID string, userID string) {
 			Description: fmt.Sprintf("POS owned by **%s**", corporationName),
 			Fields:      fields,
 			Footer: &discordgo.MessageEmbedFooter{
-				Text: fmt.Sprintf("POS overview cached for %v", starbases.CachedUntil.Time.Sub(starbases.CurrentTime.Time)),
+				Text: fmt.Sprintf("POS overview cached for %v", starbases.CachedUntil.Time.Sub(time.Now().UTC())),
 			},
 		}
 

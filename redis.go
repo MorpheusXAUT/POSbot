@@ -8,6 +8,7 @@ import (
 	"github.com/garyburd/redigo/redis"
 	"github.com/pkg/errors"
 	"strings"
+	"time"
 )
 
 const (
@@ -149,13 +150,13 @@ func (b *Bot) cacheStarbaseList(starbases *eveapi.StarbaseList) error {
 		return errors.Wrap(err, "Failed to marshal starbase list to JSON")
 	}
 
-	expiry := starbases.CachedUntil.Sub(starbases.CurrentTime.Time)
+	expiry := starbases.CachedUntil.Time.Sub(time.Now().UTC())
 	if expiry.Seconds() <= 0 {
 		log.WithField("expiry", expiry).Debug("Starbase list has expiry equal or below 0 seconds, not caching")
 		return nil
 	}
 
-	reply, err := redis.String(r.Do("SET", RedisKeyStarbaseList, data, "EX", expiry.Seconds()))
+	reply, err := redis.String(r.Do("SET", RedisKeyStarbaseList, data, "EX", int(expiry.Seconds())))
 	if err != nil {
 		return errors.Wrap(err, "Failed to store starbase list in redis")
 	} else if !strings.EqualFold(reply, "OK") {
@@ -193,13 +194,13 @@ func (b *Bot) cacheStarbaseDetails(starbase *eveapi.StarbaseDetails, starbaseID 
 		return errors.Wrap(err, "Failed to marshal starbase details to JSON")
 	}
 
-	expiry := starbase.CachedUntil.Sub(starbase.CurrentTime.Time)
+	expiry := starbase.CachedUntil.Time.Sub(time.Now().UTC())
 	if expiry.Seconds() <= 0 {
 		log.WithField("expiry", expiry).Debug("Starbase details has expiry equal or below 0 seconds, not caching")
 		return nil
 	}
 
-	reply, err := redis.String(r.Do("SET", fmt.Sprintf("%s:%d", RedisKeyStarbaseDetails, starbaseID), data, "EX", expiry.Seconds()))
+	reply, err := redis.String(r.Do("SET", fmt.Sprintf("%s:%d", RedisKeyStarbaseDetails, starbaseID), data, "EX", int(expiry.Seconds())))
 	if err != nil {
 		return errors.Wrap(err, "Failed to store starbase details in redis")
 	} else if !strings.EqualFold(reply, "OK") {
@@ -237,13 +238,13 @@ func (b *Bot) cachePOS(pos *POS) error {
 		return errors.Wrap(err, "Failed to marshal starbase list to JSON")
 	}
 
-	basicExpiry := pos.BasicCached.Until.Sub(pos.BasicCached.Current)
+	basicExpiry := pos.BasicCached.Until.Sub(time.Now().UTC())
 	if basicExpiry.Seconds() <= 0 {
 		log.WithField("expiry", basicExpiry).Debug("POS has basic expiry equal or below 0 seconds, not caching")
 		return nil
 	}
 
-	detailsExpiry := pos.DetailsCached.Until.Sub(pos.DetailsCached.Current)
+	detailsExpiry := pos.DetailsCached.Until.Sub(time.Now().UTC())
 	if detailsExpiry.Seconds() <= 0 {
 		log.WithField("expiry", detailsExpiry).Debug("POS has details expiry equal or below 0 seconds, not caching")
 		return nil
@@ -254,7 +255,7 @@ func (b *Bot) cachePOS(pos *POS) error {
 		expiry = basicExpiry
 	}
 
-	reply, err := redis.String(r.Do("SET", fmt.Sprintf("%s:%d", RedisKeyPOS, pos.ID), data, "EX", expiry.Seconds()))
+	reply, err := redis.String(r.Do("SET", fmt.Sprintf("%s:%d", RedisKeyPOS, pos.ID), data, "EX", int(expiry.Seconds())))
 	if err != nil {
 		return errors.Wrap(err, "Failed to store POS in redis")
 	} else if !strings.EqualFold(reply, "OK") {
