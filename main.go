@@ -2,11 +2,9 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"github.com/MorpheusXAUT/POSbot/util"
-	"github.com/MorpheusXAUT/eveapi"
+	"github.com/MorpheusXAUT/logzruz"
 	"github.com/Sirupsen/logrus"
-	"github.com/bwmarrin/discordgo"
+	"github.com/rifflock/lfshook"
 	"os"
 	"os/signal"
 	"strings"
@@ -51,12 +49,69 @@ func main() {
 		return
 	}
 
+	config, err := parseConfigFile(*configFile)
+	if err != nil {
+		log.WithError(err).Fatal("Failed to parse config file")
+		os.Exit(1)
+		return
+	}
+
+	if len(config.Log.LogzioToken) > 0 {
+		hostname, err := os.Hostname()
+		if err != nil {
+			log.WithError(err).Debug("Couldn't get hostname from OS, setting empty")
+			hostname = ""
+		}
+		logzCtx := logrus.Fields{
+			"app":         "POSbot",
+			"version":     Version,
+			"environment": *environment,
+			"hostname":    hostname,
+		}
+		logz, err := logzruz.NewHook(logzruz.HookOptions{
+			App:         "POSbot",
+			BufferCount: 10,
+			Context:     logzCtx,
+			Token:       config.Log.LogzioToken,
+		})
+		if err != nil {
+			log.WithError(err).Error("Failed to initialise logz.io hook")
+		} else {
+			logrus.AddHook(logz)
+			log.Debug("Initialised logz.io hook")
+		}
+	}
+
+	if len(config.Log.LogFiles) > 0 {
+		pathMap := make(lfshook.PathMap)
+		for lvl, path := range config.Log.LogFiles {
+			if len(path) == 0 {
+				log.WithField("lvl", lvl).Warn("Log file path is empty")
+				continue
+			}
+
+			level, err := logrus.ParseLevel(lvl)
+			if err != nil {
+				log.WithFields(logrus.Fields{
+					"lvl":  lvl,
+					"path": path,
+				}).WithError(err).Warn("Failed to parse level for config file")
+				continue
+			}
+
+			pathMap[level] = path
+		}
+
+		logrus.AddHook(lfshook.NewHook(pathMap))
+		log.Debug("Initialised local file logging")
+	}
+
 	log.Info("POSbot startup initiated")
 	log.WithField("configFile", *configFile).Debug("Creating new bot from config file")
 
-	bot, err := NewBotFromConfigFile(*configFile)
+	bot, err := NewBot(config)
 	if err != nil {
-		log.WithField("err", err).Fatal("Failed to create bot from config file")
+		log.WithField("err", err).Fatal("Failed to create bot")
 		os.Exit(1)
 		return
 	}
@@ -78,31 +133,4 @@ func main() {
 	bot.Shutdown()
 	os.Exit(code)
 	return
-}
-
-func monitorStarbaseFuel(eve eveapi.API, discord *discordgo.Session) {
-	starbases, err := eve.CorpStarbaseList()
-	if err != nil {
-		fmt.Printf("Failed to load corp starbase list: %v\n", err)
-		return
-	}
-
-	fmt.Printf("Result cached until %v\n", starbases.CachedUntil)
-
-	for _, base := range starbases.Starbases {
-		starbase, err := eve.CorpStarbaseDetails(base.ID)
-		if err != nil {
-			fmt.Printf("Failed to load details for starbase #%d with state %s\n", base.ID, base.State)
-			continue
-		}
-
-		requiredFuel := util.FuelRequiredForStarbase(base.TypeID)
-		fmt.Printf("Starbase #%d has state %s with usage flags %d\n", base.ID, base.State, starbase.GeneralSettings.UsageFlags)
-		for _, fuel := range starbase.Fuel {
-			fmt.Printf("Starbase #%d has %d units of fuel #%d\n", base.ID, fuel.Quantity, fuel.TypeID)
-			if fuel.TypeID == requiredFuel.TypeID {
-				fmt.Printf("Required %d units per hour, %d hours left\n", requiredFuel.Amount, fuel.Quantity/requiredFuel.Amount)
-			}
-		}
-	}
 }
