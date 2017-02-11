@@ -126,7 +126,7 @@ func (b *Bot) handleDiscordPOSCommand(message *discordgo.MessageCreate) {
 	isAdmin := b.hasBotAdminRole(message)
 
 	if len(messageParts) == 1 || (len(messageParts) == 2 && strings.EqualFold(messageParts[1], "help")) {
-		log.WithField("author", message.Author.Username).Debug("Processing POS help Discord command")
+		log.WithField("author", message.Author.Username).Info("Processing POS help Discord command")
 
 		monitored, err := b.getMonitoredStarbaseIDs()
 		if err != nil {
@@ -142,12 +142,12 @@ func (b *Bot) handleDiscordPOSCommand(message *discordgo.MessageCreate) {
 		}
 
 		b.recordCommandUsage("help")
-		log.WithField("author", message.Author.Username).Debug("Processed POS help Discord command")
+		log.WithField("author", message.Author.Username).Info("Processed POS help Discord command")
 		return
 	} else if len(messageParts) >= 2 {
 		switch strings.ToLower(messageParts[1]) {
 		case "details":
-			log.WithField("author", message.Author.Username).Debug("Processing POS details Discord command")
+			log.WithField("author", message.Author.Username).Info("Processing POS details Discord command")
 			if len(messageParts) < 3 {
 				b.recordCommandError("details")
 				b.discord.ChannelMessageSend(message.ChannelID, fmt.Sprintf("<@%s>: You'll have to tell me which POS you want to know more about...", message.Author.ID))
@@ -163,28 +163,28 @@ func (b *Bot) handleDiscordPOSCommand(message *discordgo.MessageCreate) {
 			}
 
 			b.handleDiscordPOSDetailsCommand(message.ChannelID, message.Author.ID, int(starbaseID))
-			log.WithField("author", message.Author.Username).Debug("Processed POS details Discord command")
+			log.WithField("author", message.Author.Username).Info("Processed POS details Discord command")
 			return
 		case "fuel":
-			log.WithField("author", message.Author.Username).Debug("Processing POS details Discord command")
+			log.WithField("author", message.Author.Username).Info("Processing POS details Discord command")
 			b.handleDiscordPOSFuelCommand(message.ChannelID, message.Author.ID)
-			log.WithField("author", message.Author.Username).Debug("Processed POS fuel Discord command")
+			log.WithField("author", message.Author.Username).Info("Processed POS fuel Discord command")
 			return
 		case "list":
-			log.WithField("author", message.Author.Username).Debug("Processing POS list Discord command")
+			log.WithField("author", message.Author.Username).Info("Processing POS list Discord command")
 			b.handleDiscordPOSListCommand(message.ChannelID, message.Author.ID)
-			log.WithField("author", message.Author.Username).Debug("Processed POS list Discord command")
+			log.WithField("author", message.Author.Username).Info("Processed POS list Discord command")
 			return
 		case "restart":
 			log.WithFields(logrus.Fields{
 				"author":  message.Author.Username,
 				"isAdmin": isAdmin,
-			}).Debug("Processing POS restart Discord command")
+			}).Info("Processing POS restart Discord command")
 			if !isAdmin {
 				log.WithFields(logrus.Fields{
 					"author":  message.Author.Username,
 					"isAdmin": isAdmin,
-				}).Debug("Non-admin attempted to execute POS restart Discord command, ignoring")
+				}).Info("Non-admin attempted to execute POS restart Discord command, ignoring")
 				b.recordCommandError("restart")
 				b.discord.ChannelMessageSend(message.ChannelID, fmt.Sprintf("You don't have permission to do that, <@%s> :rage: I'll just be ignoring you, alright? :zipper_mouth:", message.Author.ID))
 				return
@@ -194,18 +194,18 @@ func (b *Bot) handleDiscordPOSCommand(message *discordgo.MessageCreate) {
 			log.WithFields(logrus.Fields{
 				"author":  message.Author.Username,
 				"isAdmin": isAdmin,
-			}).Debug("Processed POS restart Discord command")
+			}).Info("Processed POS restart Discord command")
 			return
 		case "shutdown":
 			log.WithFields(logrus.Fields{
 				"author":  message.Author.Username,
 				"isAdmin": isAdmin,
-			}).Debug("Processing POS shutdown Discord command")
+			}).Info("Processing POS shutdown Discord command")
 			if !isAdmin {
 				log.WithFields(logrus.Fields{
 					"author":  message.Author.Username,
 					"isAdmin": isAdmin,
-				}).Debug("Non-admin attempted to execute POS shutdown Discord command, ignoring")
+				}).Info("Non-admin attempted to execute POS shutdown Discord command, ignoring")
 				b.recordCommandError("shutdown")
 				b.discord.ChannelMessageSend(message.ChannelID, fmt.Sprintf("You don't have permission to do that, <@%s> :rage: I'll just be ignoring you, alright? :zipper_mouth:", message.Author.ID))
 				return
@@ -215,18 +215,18 @@ func (b *Bot) handleDiscordPOSCommand(message *discordgo.MessageCreate) {
 			log.WithFields(logrus.Fields{
 				"author":  message.Author.Username,
 				"isAdmin": isAdmin,
-			}).Debug("Processed POS shutdown Discord command")
+			}).Info("Processed POS shutdown Discord command")
 			return
 		case "stats":
 			log.WithFields(logrus.Fields{
 				"author":  message.Author.Username,
 				"isAdmin": isAdmin,
-			}).Debug("Processing POS stats Discord command")
+			}).Info("Processing POS stats Discord command")
 			if !isAdmin {
 				log.WithFields(logrus.Fields{
 					"author":  message.Author.Username,
 					"isAdmin": isAdmin,
-				}).Debug("Non-admin attempted to execute POS stats Discord command, ignoring")
+				}).Info("Non-admin attempted to execute POS stats Discord command, ignoring")
 				b.recordCommandError("stats")
 				b.discord.ChannelMessageSend(message.ChannelID, fmt.Sprintf("You don't have permission to do that, <@%s> :rage: I'll just be ignoring you, alright? :zipper_mouth:", message.Author.ID))
 				return
@@ -236,7 +236,7 @@ func (b *Bot) handleDiscordPOSCommand(message *discordgo.MessageCreate) {
 			log.WithFields(logrus.Fields{
 				"author":  message.Author.Username,
 				"isAdmin": isAdmin,
-			}).Debug("Processed POS stats Discord command")
+			}).Info("Processed POS stats Discord command")
 			return
 		}
 	}
@@ -348,7 +348,7 @@ func (b *Bot) handleDiscordPOSFuelCommand(channelID string, userID string) {
 			Description: fmt.Sprintf("POS owned by **%s**", pos.OwnerName),
 			Fields:      fields,
 			Footer: &discordgo.MessageEmbedFooter{
-				Text: fmt.Sprintf("POS details cached for %v", pos.DetailsCached.Until.Sub(time.Now().UTC())),
+				Text: fmt.Sprintf("POS cached for %v", pos.CachedUntil.Sub(time.Now().UTC())),
 			},
 		}
 

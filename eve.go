@@ -12,7 +12,7 @@ import (
 )
 
 func (b *Bot) checkStarbaseFuel() {
-	log.Debug("Checking starbase fuel")
+	log.Info("Checking starbase fuel")
 
 	err := b.updateMonitoredStarbaseDetails()
 	if err != nil {
@@ -68,7 +68,7 @@ func (b *Bot) checkStarbaseFuel() {
 						"starbaseID":   pos.ID,
 						"fuelTypeID":   fuel.TypeID,
 						"notification": 2,
-					}).Debug("Notification for critical fuel status sent")
+					}).Info("Notification for critical fuel status sent")
 				} else {
 					log.WithFields(logrus.Fields{
 						"starbaseID":   pos.ID,
@@ -83,7 +83,7 @@ func (b *Bot) checkStarbaseFuel() {
 						"starbaseID":   pos.ID,
 						"fuelTypeID":   fuel.TypeID,
 						"notification": 1,
-					}).Debug("Notification for warning fuel status sent")
+					}).Info("Notification for warning fuel status sent")
 				} else {
 					log.WithFields(logrus.Fields{
 						"starbaseID":   pos.ID,
@@ -95,7 +95,7 @@ func (b *Bot) checkStarbaseFuel() {
 		}
 	}
 
-	log.Debug("Finished checking starbase fuel")
+	log.Info("Finished checking starbase fuel")
 }
 
 func (b *Bot) isStarbaseMonitored(starbaseID int) bool {
@@ -124,6 +124,8 @@ func (b *Bot) getMonitoredStarbaseIDs() ([]int, error) {
 }
 
 func (b *Bot) retrieveStarbaseList() (*eveapi.StarbaseList, error) {
+	log.Debug("Retrieving starbase list")
+
 	starbases, err := b.retrieveCachedStarbaseList()
 	if err != nil && err != redis.ErrNil {
 		return nil, errors.Wrap(err, "Failed to retrieve cached starbase list")
@@ -145,10 +147,13 @@ func (b *Bot) retrieveStarbaseList() (*eveapi.StarbaseList, error) {
 		log.WithError(err).Warn("Failed to cache starbase list")
 	}
 
+	log.Debug("Retrieved starbase list from EVE API")
 	return starbases, nil
 }
 
 func (b *Bot) retrieveStarbaseDetails(starbaseID int) (*eveapi.StarbaseDetails, error) {
+	log.WithField("starbaseID", starbaseID).Debug("Retrieving starbase details")
+
 	starbase, err := b.retrieveCachedStarbaseDetails(starbaseID)
 	if err != nil && err != redis.ErrNil {
 		return nil, errors.Wrap(err, "Failed to retrieve cached starbase details")
@@ -170,6 +175,7 @@ func (b *Bot) retrieveStarbaseDetails(starbaseID int) (*eveapi.StarbaseDetails, 
 		log.WithField("starbaseID", starbaseID).WithError(err).Warn("Failed to cache starbase details")
 	}
 
+	log.WithField("starbaseID", starbaseID).Debug("Retrieved starbase details from EVE API")
 	return starbase, nil
 }
 
@@ -219,16 +225,9 @@ type POS struct {
 	OwnerName    string
 	State        eveapi.StarbaseState
 	Monitored    bool
-	BasicCached  struct {
-		Until   time.Time
-		Current time.Time
-	}
-	DetailsCached struct {
-		Until   time.Time
-		Current time.Time
-	}
-	Size POSSize
-	Fuel []POSFuel
+	CachedUntil  time.Time
+	Size         POSSize
+	Fuel         []POSFuel
 }
 
 type POSSize int
@@ -270,6 +269,8 @@ const (
 )
 
 func (b *Bot) getPOSFromStarbaseID(starbaseID int) (*POS, error) {
+	log.WithField("starbaseID", starbaseID).Debug("Retrieving POS")
+
 	pos, err := b.retrieveCachedPOS(starbaseID)
 	if err != nil && err != redis.ErrNil {
 		return nil, errors.Wrap(err, "Failed to retrieve cached POS")
@@ -363,6 +364,11 @@ func (b *Bot) getPOSFromStarbaseID(starbaseID int) (*POS, error) {
 		})
 	}
 
+	cachedUntil := starbaseDetails.CachedUntil.Time
+	if starbaseDetails.CachedUntil.Time.After(starbases.CachedUntil.Time) {
+		cachedUntil = starbases.CachedUntil.Time
+	}
+
 	pos = &POS{
 		ID:           starbase.ID,
 		LocationID:   starbase.LocationID,
@@ -371,16 +377,9 @@ func (b *Bot) getPOSFromStarbaseID(starbaseID int) (*POS, error) {
 		OwnerName:    corporationName,
 		State:        starbase.State,
 		Monitored:    true,
-		BasicCached: struct {
-			Until   time.Time
-			Current time.Time
-		}{Until: starbases.CachedUntil.Time, Current: starbases.CurrentTime.Time},
-		DetailsCached: struct {
-			Until   time.Time
-			Current time.Time
-		}{Until: starbaseDetails.CachedUntil.Time, Current: starbaseDetails.CurrentTime.Time},
-		Size: size,
-		Fuel: posFuel,
+		CachedUntil:  cachedUntil,
+		Size:         size,
+		Fuel:         posFuel,
 	}
 
 	err = b.cachePOS(pos)
@@ -388,6 +387,7 @@ func (b *Bot) getPOSFromStarbaseID(starbaseID int) (*POS, error) {
 		log.WithField("starbaseID", starbaseID).WithError(err).Warn("Failed to cache POS")
 	}
 
+	log.WithField("starbaseID", starbaseID).Debug("Retrieved POS")
 	return pos, nil
 }
 

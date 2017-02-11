@@ -42,7 +42,7 @@ func NewBot(config *Config) (*Bot, error) {
 
 	var err error
 
-	log.Debug("Initialising Redis connection")
+	log.Info("Initialising Redis connection")
 	redisOptions := make([]redis.DialOption, 0)
 	if len(bot.config.Redis.Password) > 0 {
 		redisOptions = append(redisOptions, redis.DialPassword(bot.config.Redis.Password))
@@ -70,18 +70,17 @@ func NewBot(config *Config) (*Bot, error) {
 		return nil, errors.Wrap(err, "Failed to ping Redis server")
 	}
 
-	log.Debug("Creating httpcache client")
-
+	log.Info("Creating httpcache client")
 	transport := httpcache.NewTransport(httpredis.NewWithClient(bot.redis.Get()))
 	bot.http = &http.Client{
 		Transport: transport,
 		Timeout:   time.Second * 90,
 	}
 
-	log.Debug("Initialising ESI connection")
+	log.Info("Initialising ESI connection")
 	bot.esi = evesi.NewAPIClient(bot.http, UserAgent)
 
-	log.Debug("Initialising EVE connection")
+	log.Info("Initialising EVE connection")
 	bot.eve = eveapi.API{
 		Server: eveapi.Tranquility,
 		APIKey: eveapi.Key{
@@ -99,7 +98,7 @@ func NewBot(config *Config) (*Bot, error) {
 		return nil, errors.Wrap(err, "Failed to query EVE server status")
 	}
 
-	log.Debug("Initialising MySQL connection")
+	log.Info("Initialising MySQL connection")
 	bot.mysql, err = sqlx.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s", bot.config.MySQL.Username, bot.config.MySQL.Password, bot.config.MySQL.Address, bot.config.MySQL.Database))
 	if err != nil {
 		bot.redis.Close()
@@ -132,7 +131,7 @@ func NewBot(config *Config) (*Bot, error) {
 		return nil, errors.Wrap(err, "Missing required MySQL tables")
 	}
 
-	log.Debug("Initialising Discord connection")
+	log.Info("Initialising Discord connection")
 	bot.discord, err = discordgo.New(fmt.Sprintf("Bot %s", bot.config.Discord.Token))
 	if err != nil {
 		bot.redis.Close()
@@ -168,7 +167,7 @@ func NewBotFromConfigFile(configFile string) (*Bot, error) {
 }
 
 func (b *Bot) Shutdown() {
-	log.Debug("Clean bot shutdown initiated")
+	log.Info("Clean bot shutdown initiated")
 
 	b.ticker.Stop()
 	b.stop <- true
@@ -181,7 +180,7 @@ func (b *Bot) Shutdown() {
 	b.redis.Close()
 	b.mysql.Close()
 
-	log.WithField("logzruzForceFlush", true).Debug("Clean bot shutdown completed")
+	log.WithField("logzruzForceFlush", true).Info("Clean bot shutdown completed")
 }
 
 func (b *Bot) monitoringLoop() {

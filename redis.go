@@ -41,6 +41,8 @@ func (b *Bot) recordCommandError(command string) {
 }
 
 func (b *Bot) retrieveCommandStats() (map[string]struct{ Usage, Error int }, error) {
+	log.Debug("Retrieving command stats from redis")
+
 	r := b.redis.Get()
 	defer r.Close()
 
@@ -119,15 +121,19 @@ func (b *Bot) retrieveCommandStats() (map[string]struct{ Usage, Error int }, err
 		stats[key[21:]] = s
 	}
 
+	log.Debug("Received command stats from redis")
 	return stats, nil
 }
 
 func (b *Bot) retrieveCachedStarbaseList() (*eveapi.StarbaseList, error) {
+	log.Debug("Retrieving cached starbase list from redis")
+
 	r := b.redis.Get()
 	defer r.Close()
 
 	data, err := redis.Bytes(r.Do("GET", RedisKeyStarbaseList))
 	if err == redis.ErrNil {
+		log.Debug("Starbase list not cached in redis")
 		return nil, err
 	} else if err != nil {
 		return nil, errors.Wrap(err, "Failed to retrieve starbase list from redis")
@@ -138,10 +144,19 @@ func (b *Bot) retrieveCachedStarbaseList() (*eveapi.StarbaseList, error) {
 		return nil, errors.Wrap(err, "Failed to parse starbase list from redis")
 	}
 
+	log.WithFields(logrus.Fields{
+		"count":       len(starbases.Starbases),
+		"cachedUntil": starbases.CachedUntil,
+	}).Debug("Retrieved cached starbase list from redis")
 	return starbases, nil
 }
 
 func (b *Bot) cacheStarbaseList(starbases *eveapi.StarbaseList) error {
+	log.WithFields(logrus.Fields{
+		"count":       len(starbases.Starbases),
+		"cachedUntil": starbases.CachedUntil,
+	}).Debug("Caching starbase list in redis")
+
 	r := b.redis.Get()
 	defer r.Close()
 
@@ -152,7 +167,10 @@ func (b *Bot) cacheStarbaseList(starbases *eveapi.StarbaseList) error {
 
 	expiry := starbases.CachedUntil.Time.Sub(time.Now().UTC())
 	if expiry.Seconds() <= 0 {
-		log.WithField("expiry", expiry).Debug("Starbase list has expiry equal or below 0 seconds, not caching")
+		log.WithFields(logrus.Fields{
+			"expiry":      expiry,
+			"cachedUntil": starbases.CachedUntil,
+		}).Debug("Starbase list has expiry equal or below 0 seconds, not caching")
 		return nil
 	}
 
@@ -163,15 +181,22 @@ func (b *Bot) cacheStarbaseList(starbases *eveapi.StarbaseList) error {
 		return errors.New("Failed to store starbase list in redis")
 	}
 
+	log.WithFields(logrus.Fields{
+		"count":       len(starbases.Starbases),
+		"cachedUntil": starbases.CachedUntil,
+	}).Debug("Cached starbase list in redis")
 	return nil
 }
 
 func (b *Bot) retrieveCachedStarbaseDetails(starbaseID int) (*eveapi.StarbaseDetails, error) {
+	log.WithField("starbaseID", starbaseID).Debug("Retrieving cached starbase details from redis")
+
 	r := b.redis.Get()
 	defer r.Close()
 
 	data, err := redis.Bytes(r.Do("GET", fmt.Sprintf("%s:%d", RedisKeyStarbaseDetails, starbaseID)))
 	if err == redis.ErrNil {
+		log.WithField("starbaseID", starbaseID).Debug("Starbase details not cached in redis")
 		return nil, err
 	} else if err != nil {
 		return nil, errors.Wrap(err, "Failed to retrieve starbase details from redis")
@@ -182,10 +207,19 @@ func (b *Bot) retrieveCachedStarbaseDetails(starbaseID int) (*eveapi.StarbaseDet
 		return nil, errors.Wrap(err, "Failed to parse starbase details from redis")
 	}
 
+	log.WithFields(logrus.Fields{
+		"starbaseID":  starbaseID,
+		"cachedUntil": starbase.CachedUntil,
+	}).Debug("Retrieved cached starbase details from redis")
 	return starbase, nil
 }
 
 func (b *Bot) cacheStarbaseDetails(starbase *eveapi.StarbaseDetails, starbaseID int) error {
+	log.WithFields(logrus.Fields{
+		"starbaseID":  starbaseID,
+		"cachedUntil": starbase.CachedUntil,
+	}).Debug("Caching starbase details in redis")
+
 	r := b.redis.Get()
 	defer r.Close()
 
@@ -196,7 +230,10 @@ func (b *Bot) cacheStarbaseDetails(starbase *eveapi.StarbaseDetails, starbaseID 
 
 	expiry := starbase.CachedUntil.Time.Sub(time.Now().UTC())
 	if expiry.Seconds() <= 0 {
-		log.WithField("expiry", expiry).Debug("Starbase details has expiry equal or below 0 seconds, not caching")
+		log.WithFields(logrus.Fields{
+			"expiry":      expiry,
+			"cachedUntil": starbase.CachedUntil,
+		}).Debug("Starbase details have expiry equal or below 0 seconds, not caching")
 		return nil
 	}
 
@@ -207,15 +244,22 @@ func (b *Bot) cacheStarbaseDetails(starbase *eveapi.StarbaseDetails, starbaseID 
 		return errors.New("Failed to store starbase details in redis")
 	}
 
+	log.WithFields(logrus.Fields{
+		"starbaseID":  starbaseID,
+		"cachedUntil": starbase.CachedUntil,
+	}).Debug("Cached starbase details in redis")
 	return nil
 }
 
 func (b *Bot) retrieveCachedPOS(starbaseID int) (*POS, error) {
+	log.WithField("starbaseID", starbaseID).Debug("Retrieving cached POS from redis")
+
 	r := b.redis.Get()
 	defer r.Close()
 
 	data, err := redis.Bytes(r.Do("GET", fmt.Sprintf("%s:%d", RedisKeyPOS, starbaseID)))
 	if err == redis.ErrNil {
+		log.WithField("starbaseID", starbaseID).Debug("POS not cached in redis")
 		return nil, err
 	} else if err != nil {
 		return nil, errors.Wrap(err, "Failed to retrieve POS from redis")
@@ -226,10 +270,19 @@ func (b *Bot) retrieveCachedPOS(starbaseID int) (*POS, error) {
 		return nil, errors.Wrap(err, "Failed to parse POS from redis")
 	}
 
+	log.WithFields(logrus.Fields{
+		"starbaseID":  pos.ID,
+		"cachedUntil": pos.CachedUntil,
+	}).Debug("Retrieved cached POS from redis")
 	return pos, nil
 }
 
 func (b *Bot) cachePOS(pos *POS) error {
+	log.WithFields(logrus.Fields{
+		"starbaseID":  pos.ID,
+		"cachedUntil": pos.CachedUntil,
+	}).Debug("Caching POS in redis")
+
 	r := b.redis.Get()
 	defer r.Close()
 
@@ -238,21 +291,13 @@ func (b *Bot) cachePOS(pos *POS) error {
 		return errors.Wrap(err, "Failed to marshal starbase list to JSON")
 	}
 
-	basicExpiry := pos.BasicCached.Until.Sub(time.Now().UTC())
-	if basicExpiry.Seconds() <= 0 {
-		log.WithField("expiry", basicExpiry).Debug("POS has basic expiry equal or below 0 seconds, not caching")
+	expiry := pos.CachedUntil.Sub(time.Now().UTC())
+	if expiry.Seconds() <= 0 {
+		log.WithFields(logrus.Fields{
+			"expiry":      expiry,
+			"cachedUntil": pos.CachedUntil,
+		}).Debug("POS has expiry equal or below 0 seconds, not caching")
 		return nil
-	}
-
-	detailsExpiry := pos.DetailsCached.Until.Sub(time.Now().UTC())
-	if detailsExpiry.Seconds() <= 0 {
-		log.WithField("expiry", detailsExpiry).Debug("POS has details expiry equal or below 0 seconds, not caching")
-		return nil
-	}
-
-	expiry := detailsExpiry
-	if basicExpiry < expiry {
-		expiry = basicExpiry
 	}
 
 	reply, err := redis.String(r.Do("SET", fmt.Sprintf("%s:%d", RedisKeyPOS, pos.ID), data, "EX", int(expiry.Seconds())))
@@ -262,6 +307,10 @@ func (b *Bot) cachePOS(pos *POS) error {
 		return errors.New("Failed to store POS in redis")
 	}
 
+	log.WithFields(logrus.Fields{
+		"starbaseID":  pos.ID,
+		"cachedUntil": pos.CachedUntil,
+	}).Debug("Cached POS in redis")
 	return nil
 }
 
