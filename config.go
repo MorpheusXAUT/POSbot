@@ -7,27 +7,38 @@ import (
 )
 
 type Config struct {
-	Log struct {
-		LogFiles    map[string]string `json:"logFiles"`
-		LogzioToken string            `json:"logzioToken"`
-	} `json:"log"`
+	Logging struct {
+		Files struct {
+			Enabled bool              `json:"enabled"`
+			Paths   map[string]string `json:"paths"`
+		} `json:"files"`
+		Logzio struct {
+			Enabled bool              `json:"enabled"`
+			Token   string            `json:"token"`
+			Context map[string]string `json:"context"`
+		} `json:"logzio"`
+	} `json:"logging"`
 	Discord struct {
-		Token                string `json:"token"`
-		GuildID              string `json:"guildID"`
-		ChannelID            string `json:"channelID"`
-		BotAdminRoleID       string `json:"botAdminRoleID"`
-		Verbose              bool   `json:"verbose"`
-		Debug                bool   `json:"debug"`
-		NotificationWarning  int    `json:"notificationWarning"`
-		NotificationCritical int    `json:"notificationCritical"`
+		Token          string `json:"token"`
+		GuildID        string `json:"guildID"`
+		ChannelID      string `json:"channelID"`
+		BotAdminRoleID string `json:"botAdminRoleID"`
+		Verbose        bool   `json:"verbose"`
+		Debug          bool   `json:"debug"`
+		Notifications  struct {
+			Warning  int `json:"warning"`
+			Critical int `json:"critical"`
+		} `json:"notifications"`
 	} `json:"discord"`
 	EVE struct {
-		KeyID                 string `json:"keyID"`
-		KeyVCode              string `json:"keyvCode"`
-		IgnoredStarbases      []int  `json:"ignoredStarbases"`
-		MonitorInterval       int    `json:"monitorInterval"`
-		FuelWarningThreshold  int    `json:"fuelWarningThreshold"`
-		FuelCriticalThreshold int    `json:"fuelCriticalThreshold"`
+		KeyID            string `json:"keyID"`
+		KeyVCode         string `json:"keyvCode"`
+		IgnoredStarbases []int  `json:"ignoredStarbases"`
+		MonitorInterval  int    `json:"monitorInterval"`
+		FuelThreshold    struct {
+			Warning  int `json:"warning"`
+			Critical int `json:"critical"`
+		} `json:"fuelThreshold"`
 	} `json:"eve"`
 	Redis struct {
 		Address  string `json:"address"`

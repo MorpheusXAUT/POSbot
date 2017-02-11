@@ -56,35 +56,9 @@ func main() {
 		return
 	}
 
-	if len(config.Log.LogzioToken) > 0 {
-		hostname, err := os.Hostname()
-		if err != nil {
-			log.WithError(err).Debug("Couldn't get hostname from OS, setting empty")
-			hostname = ""
-		}
-		logzCtx := logrus.Fields{
-			"app":         "POSbot",
-			"version":     Version,
-			"environment": *environment,
-			"hostname":    hostname,
-		}
-		logz, err := logzruz.NewHook(logzruz.HookOptions{
-			App:         "POSbot",
-			BufferCount: 10,
-			Context:     logzCtx,
-			Token:       config.Log.LogzioToken,
-		})
-		if err != nil {
-			log.WithError(err).Error("Failed to initialise logz.io hook")
-		} else {
-			logrus.AddHook(logz)
-			log.Debug("Initialised logz.io hook")
-		}
-	}
-
-	if len(config.Log.LogFiles) > 0 {
+	if config.Logging.Files.Enabled {
 		pathMap := make(lfshook.PathMap)
-		for lvl, path := range config.Log.LogFiles {
+		for lvl, path := range config.Logging.Files.Paths {
 			if len(path) == 0 {
 				log.WithField("lvl", lvl).Warn("Log file path is empty")
 				continue
@@ -104,6 +78,31 @@ func main() {
 
 		logrus.AddHook(lfshook.NewHook(pathMap))
 		log.Debug("Initialised local file logging")
+	}
+
+	if config.Logging.Logzio.Enabled {
+		logzCtx := logrus.Fields{
+			"app":         "POSbot",
+			"version":     Version,
+			"environment": *environment,
+		}
+
+		for k, v := range config.Logging.Logzio.Context {
+			logzCtx[k] = v
+		}
+
+		logz, err := logzruz.NewHook(logzruz.HookOptions{
+			App:         "POSbot",
+			BufferCount: 10,
+			Context:     logzCtx,
+			Token:       config.Logging.Logzio.Token,
+		})
+		if err != nil {
+			log.WithError(err).Error("Failed to initialise logz.io hook")
+		} else {
+			logrus.AddHook(logz)
+			log.Debug("Initialised logz.io hook")
+		}
 	}
 
 	log.Info("POSbot startup initiated")

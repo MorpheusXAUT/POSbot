@@ -320,9 +320,9 @@ func (b *Bot) recordNotification(starbaseID int, fuelTypeID int, notification in
 
 	expiry := 3600
 	if notification == 1 {
-		expiry = b.config.Discord.NotificationWarning
+		expiry = b.config.Discord.Notifications.Warning
 	} else if notification == 2 {
-		expiry = b.config.Discord.NotificationCritical
+		expiry = b.config.Discord.Notifications.Critical
 	}
 	_, err := r.Do("SET", fmt.Sprintf("%s:%d:%d", RedisKeyNotification, starbaseID, fuelTypeID), notification, "EX", expiry)
 	if err != nil {

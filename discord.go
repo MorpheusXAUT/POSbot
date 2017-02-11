@@ -270,6 +270,8 @@ func (b *Bot) handleDiscordPOSFuelCommand(channelID string, userID string) {
 	b.discord.ChannelTyping(channelID)
 
 	for i, id := range monitored {
+		log.WithField("starbaseID", id).Debug("Checking POS fuel status for Discord command")
+
 		pos, err := b.getPOSFromStarbaseID(id)
 		if err != nil {
 			log.WithFields(logrus.Fields{
@@ -301,7 +303,7 @@ func (b *Bot) handleDiscordPOSFuelCommand(channelID string, userID string) {
 
 		fuelStatus := 0
 		for _, fuel := range pos.Fuel {
-			remaining, err := durafmt.ParseString(fmt.Sprintf("%fh", fuel.TimeRemaining))
+			remaining, err := durafmt.ParseString(fmt.Sprintf("%fh", fuel.HoursRemaining))
 			if err != nil {
 				log.WithFields(logrus.Fields{
 					"userID":     userID,
@@ -317,10 +319,10 @@ func (b *Bot) handleDiscordPOSFuelCommand(channelID string, userID string) {
 
 			remain := remaining.Short()
 			if fuel.ConstantlyRequired {
-				if int(fuel.TimeRemaining) <= b.config.EVE.FuelCriticalThreshold {
+				if int(fuel.HoursRemaining) <= b.config.EVE.FuelThreshold.Critical {
 					remain = fmt.Sprintf("__**%s**__", remain)
 					fuelStatus = 2
-				} else if int(fuel.TimeRemaining) <= b.config.EVE.FuelWarningThreshold {
+				} else if int(fuel.HoursRemaining) <= b.config.EVE.FuelThreshold.Warning {
 					remain = fmt.Sprintf("**%s**", remain)
 					if fuelStatus < 1 {
 						fuelStatus = 1
@@ -356,7 +358,7 @@ func (b *Bot) handleDiscordPOSFuelCommand(channelID string, userID string) {
 		b.discord.ChannelTyping(channelID)
 	}
 
-	b.discord.ChannelMessageSend(channelID, fmt.Sprintf("I will shout at you if a POS should fall under %dh fuel remaining (warning, *orange*) and absolutely flip out at %dh fuel left (critical, *red*) :hugging:", b.config.EVE.FuelWarningThreshold, b.config.EVE.FuelCriticalThreshold))
+	b.discord.ChannelMessageSend(channelID, fmt.Sprintf("I will shout at you if a POS should fall under %dh fuel remaining (warning, *orange*) and absolutely flip out at %dh fuel left (critical, *red*) :hugging:", b.config.EVE.FuelThreshold.Warning, b.config.EVE.FuelThreshold.Critical))
 	b.recordCommandUsage("fuel")
 }
 

@@ -49,7 +49,7 @@ func (b *Bot) checkStarbaseFuel() {
 				continue
 			}
 
-			remaining, err := durafmt.ParseString(fmt.Sprintf("%fh", fuel.TimeRemaining))
+			remaining, err := durafmt.ParseString(fmt.Sprintf("%fh", fuel.HoursRemaining))
 			if err != nil {
 				log.WithFields(logrus.Fields{
 					"starbaseID": pos.ID,
@@ -61,7 +61,7 @@ func (b *Bot) checkStarbaseFuel() {
 				continue
 			}
 
-			if int(fuel.TimeRemaining) <= b.config.EVE.FuelCriticalThreshold {
+			if int(fuel.HoursRemaining) <= b.config.EVE.FuelThreshold.Critical {
 				if b.shouldSendNotification(pos.ID, fuel.TypeID, 2) {
 					b.discord.ChannelMessageSend(b.config.Discord.ChannelID, fmt.Sprintf("@everyone :rotating_light: POS at **%s** (owned by %s) only has __**%s**__ of fuel **%s** left. FIX THIS SHIT NOW :rage:", pos.LocationName, pos.OwnerName, remaining, fuel.TypeName))
 					log.WithFields(logrus.Fields{
@@ -76,7 +76,7 @@ func (b *Bot) checkStarbaseFuel() {
 						"notification": 2,
 					}).Debug("Notification already sent, skipping critical fuel status")
 				}
-			} else if int(fuel.TimeRemaining) <= b.config.EVE.FuelWarningThreshold {
+			} else if int(fuel.HoursRemaining) <= b.config.EVE.FuelThreshold.Warning {
 				if b.shouldSendNotification(pos.ID, fuel.TypeID, 1) {
 					b.discord.ChannelMessageSend(b.config.Discord.ChannelID, fmt.Sprintf("@here :alarm_clock: POS at **%s** (owned by %s) has **%s** of fuel **%s** left, someone should probably check that :thinking:", pos.LocationName, pos.OwnerName, remaining, fuel.TypeName))
 					log.WithFields(logrus.Fields{
@@ -258,7 +258,7 @@ type POSFuel struct {
 	Quantity           int
 	Required           int
 	ConstantlyRequired bool
-	TimeRemaining      float64
+	HoursRemaining     float64
 }
 
 type POSFuelType int
@@ -360,7 +360,7 @@ func (b *Bot) getPOSFromStarbaseID(starbaseID int) (*POS, error) {
 			Quantity:           fuel.Quantity,
 			Required:           required,
 			ConstantlyRequired: constantlyRequired,
-			TimeRemaining:      float64(fuel.Quantity) / float64(required),
+			HoursRemaining:     float64(fuel.Quantity) / float64(required),
 		})
 	}
 
